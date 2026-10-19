@@ -51,6 +51,9 @@ const MATERIAL = /^(deixei )?material\s*$/
 export function hojeSP() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 }
+export function agoraSP() {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
+}
 export function segundaDe(iso: string) {
   const d = new Date(iso + 'T12:00:00Z')
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
@@ -81,42 +84,97 @@ export function semanaVazia(k: string): Semana {
   return { semana: k, rotulo: rotuloSemana(k), diasCampo: 0, visitas: 0, visitasDia: 0, duracaoMedia: null, vendas: 0, pecas: 0, faturamento: 0, clientesNovos: 0, pctProximoPasso: 0, pctSoMaterial: 0, expectativa: 0 }
 }
 
+export type Resumo = Omit<Semana, 'semana' | 'rotulo'>
+
+export function agregar(visitas: VisitaExt[]): Resumo {
+  const dias = new Set<string>()
+  const dur: number[] = []
+  let vendas = 0, pecas = 0, fat = 0, novos = 0, prox = 0, mat = 0, exp = 0
+  for (const v of visitas) {
+    const c = classificar(v)
+    dias.add(v.data_visita)
+    if (v.duracao_min) dur.push(v.duracao_min)
+    vendas += c.vendeu ? 1 : 0
+    pecas += v.pecas_vendidas || 0
+    fat += Number(v.faturamento || 0)
+    novos += c.clienteNovo ? 1 : 0
+    prox += c.proximoPasso ? 1 : 0
+    mat += c.soMaterial ? 1 : 0
+    exp += v.expectativa_pecas || 0
+  }
+  const n = visitas.length
+  return {
+    diasCampo: dias.size,
+    visitas: n,
+    visitasDia: dias.size ? n / dias.size : 0,
+    duracaoMedia: dur.length ? dur.reduce((a, b) => a + b, 0) / dur.length : null,
+    vendas, pecas, faturamento: fat, clientesNovos: novos,
+    pctProximoPasso: n ? prox / n : 0,
+    pctSoMaterial: n ? mat / n : 0,
+    expectativa: exp,
+  }
+}
+
 export function porSemana(visitas: VisitaExt[]): Semana[] {
-  const acc = new Map<string, { dias: Set<string>; dur: number[]; n: number; vendas: number; pecas: number; fat: number; novos: number; prox: number; mat: number; exp: number }>()
+  const grupos = new Map<string, VisitaExt[]>()
   for (const v of visitas) {
     const k = segundaDe(v.data_visita)
-    if (!acc.has(k)) acc.set(k, { dias: new Set(), dur: [], n: 0, vendas: 0, pecas: 0, fat: 0, novos: 0, prox: 0, mat: 0, exp: 0 })
-    const s = acc.get(k)!
-    const c = classificar(v)
-    s.dias.add(v.data_visita)
-    s.n += 1
-    if (v.duracao_min) s.dur.push(v.duracao_min)
-    s.vendas += c.vendeu ? 1 : 0
-    s.pecas += v.pecas_vendidas || 0
-    s.fat += Number(v.faturamento || 0)
-    s.novos += c.clienteNovo ? 1 : 0
-    s.prox += c.proximoPasso ? 1 : 0
-    s.mat += c.soMaterial ? 1 : 0
-    s.exp += v.expectativa_pecas || 0
+    if (!grupos.has(k)) grupos.set(k, [])
+    grupos.get(k)!.push(v)
   }
-  return Array.from(acc.entries())
+  return Array.from(grupos.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, s]) => ({
-      semana: k,
-      rotulo: rotuloSemana(k),
-      diasCampo: s.dias.size,
-      visitas: s.n,
-      visitasDia: s.dias.size ? s.n / s.dias.size : 0,
-      duracaoMedia: s.dur.length ? s.dur.reduce((a, b) => a + b, 0) / s.dur.length : null,
-      vendas: s.vendas,
-      pecas: s.pecas,
-      faturamento: s.fat,
-      clientesNovos: s.novos,
-      pctProximoPasso: s.n ? s.prox / s.n : 0,
-      pctSoMaterial: s.n ? s.mat / s.n : 0,
-      expectativa: s.exp,
-    }))
+    .map(([k, vs]) => ({ semana: k, rotulo: rotuloSemana(k), ...agregar(vs) }))
 }
+
+// ── Período (filtro do painel e das visitas) ────────────────────────────────
+export const ATALHOS = [
+  { id: 'semana', rotulo: 'Esta semana' },
+  { id: 'semana_passada', rotulo: 'Semana passada' },
+  { id: 'mes', rotulo: 'Este mês' },
+  { id: 'mes_passado', rotulo: 'Mês passado' },
+  { id: '30d', rotulo: 'Últimos 30 dias' },
+  { id: 'tudo', rotulo: 'Desde o início' },
+] as const
+
+export interface Periodo { de: string; ate: string; atalho: string; rotulo: string; dias: number; antDe: string; antAte: string }
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/
+const diasEntre = (a: string, b: string) => Math.round((new Date(b + 'T12:00:00Z').getTime() - new Date(a + 'T12:00:00Z').getTime()) / 864e5)
+export const dmyCurto = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4)
+
+export function resolverPeriodo(sp: { p?: string; de?: string; ate?: string }, hoje: string, inicio = '2026-09-01'): Periodo {
+  let de = '', ate = '', atalho = sp.p || ''
+  if (sp.de && sp.ate && ISO.test(sp.de) && ISO.test(sp.ate)) {
+    de = sp.de <= sp.ate ? sp.de : sp.ate
+    ate = sp.de <= sp.ate ? sp.ate : sp.de
+    atalho = 'custom'
+  } else {
+    const seg = segundaDe(hoje)
+    const mesIni = hoje.slice(0, 8) + '01'
+    const mesPassFim = somarDias(mesIni, -1)
+    const mapa: Record<string, [string, string]> = {
+      semana: [seg, hoje],
+      semana_passada: [somarDias(seg, -7), somarDias(seg, -1)],
+      mes: [mesIni, hoje],
+      mes_passado: [mesPassFim.slice(0, 8) + '01', mesPassFim],
+      '30d': [somarDias(hoje, -29), hoje],
+      tudo: [inicio, hoje],
+    }
+    if (!mapa[atalho]) atalho = 'semana'
+    ;[de, ate] = mapa[atalho]
+  }
+  const dias = diasEntre(de, ate) + 1
+  const nome = ATALHOS.find((a) => a.id === atalho)?.rotulo
+  return {
+    de, ate, atalho, dias,
+    rotulo: nome ? `${nome} (${dmyCurto(de)} a ${dmyCurto(ate)})` : `${dmyCurto(de)} a ${dmyCurto(ate)}`,
+    antAte: somarDias(de, -1),
+    antDe: somarDias(de, -dias),
+  }
+}
+
+export const noPeriodo = (v: { data_visita: string }, de: string, ate: string) => v.data_visita >= de && v.data_visita <= ate
 
 // Último registro de cada empresa sem venda, possibilidade Alta/Média e expectativa de peças.
 export function oportunidades(visitas: VisitaExt[]) {

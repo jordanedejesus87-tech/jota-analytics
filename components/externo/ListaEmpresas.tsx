@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
+import { Phone } from 'lucide-react'
 
 export interface EmpresaLista {
   id: number
@@ -16,6 +17,7 @@ export interface EmpresaLista {
 }
 
 const norm = (s: unknown) => String(s ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const telLimpo = (t: string | null) => { const d = String(t ?? '').replace(/\D/g, ''); return d.length >= 10 ? d : '' }
 const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
 const campo = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
@@ -34,8 +36,8 @@ export default function ListaEmpresas({ empresas, rotas, podeEditar }: { empresa
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="grid gap-1.5 text-sm font-medium text-gray-700">Buscar<input id="busca" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome, bairro, rua ou contato" className={campo} /></label>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <label className="col-span-2 sm:col-span-1 grid gap-1.5 text-sm font-medium text-gray-700">Buscar<input id="busca" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome, bairro, rua ou contato" className={campo} /></label>
         <label className="grid gap-1.5 text-sm font-medium text-gray-700">Rota
           <select id="filtro-rota" value={rota} onChange={(e) => setRota(e.target.value)} className={campo}>
             <option value="">Todas as rotas</option>
@@ -70,11 +72,16 @@ export default function ListaEmpresas({ empresas, rotas, podeEditar }: { empresa
             </>
           )
           return (
-            <li key={e.id}>
+            <li key={e.id} className="flex items-stretch gap-2">
               {podeEditar ? (
-                <Link href={`/dashboard/externo/ficha/nova?empresa=${e.id}`} className="block rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-indigo-300">{corpo}</Link>
+                <Link href={`/dashboard/externo/ficha/nova?empresa=${e.id}`} className="block min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-indigo-300 active:bg-gray-50">{corpo}</Link>
               ) : (
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">{corpo}</div>
+                <div className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3">{corpo}</div>
+              )}
+              {telLimpo(e.telefone) && (
+                <a href={`tel:${telLimpo(e.telefone)}`} aria-label={`Ligar para ${e.nome}`} className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-indigo-700 active:bg-indigo-50">
+                  <Phone className="w-5 h-5" />
+                </a>
               )}
             </li>
           )

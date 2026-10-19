@@ -61,9 +61,10 @@ interface Props {
   rotas: string[]
   hoje: string
   vendedores?: { id: string; name: string }[]
+  agoraInicial?: string
 }
 
-export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vendedores = [] }: Props) {
+export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vendedores = [], agoraInicial }: Props) {
   const [estado, acao] = useFormState<EstadoFicha, FormData>(salvarFicha, { erros: [] })
   const ag = String(visita.agendamento || '')
   const agData = /^\d{2}\/\d{2}\/\d{4}$/.test(ag) ? `${ag.slice(6)}-${ag.slice(3, 5)}-${ag.slice(0, 2)}` : ''
@@ -80,7 +81,17 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
         </div>
       )}
 
-      <Bloco titulo="Empresa">
+      {empresa.id ? (
+        <details className="group rounded-xl border border-gray-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <span className="min-w-0">
+              <span className="block font-semibold text-gray-900 truncate">{empresa.nome}</span>
+              <span className="block text-xs text-gray-500 truncate">{[empresa.rota, empresa.bairro, empresa.contato, empresa.telefone].filter(Boolean).join(' · ') || 'Sem dados de contato'}</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold text-indigo-700 group-open:hidden">Editar dados</span>
+            <span className="shrink-0 hidden text-sm font-semibold text-gray-500 group-open:inline">Fechar</span>
+          </summary>
+          <div className="border-t border-gray-100 p-4 sm:p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={rotulo}>Descrição (nome da empresa)<input id="nome" name="nome" required defaultValue={empresa.nome || ''} className={campo} /></label>
           <label className={rotulo}>Rota
@@ -92,12 +103,28 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
           <label className={rotulo}>Telefone<input id="telefone" name="telefone" type="tel" inputMode="tel" defaultValue={empresa.telefone || ''} placeholder="(55) 99999-9999" className={campo} /></label>
           <label className={rotulo}>Contato<input id="contato" name="contato" defaultValue={empresa.contato || ''} placeholder="Com quem falou" className={campo} /></label>
         </div>
-      </Bloco>
+          </div>
+        </details>
+      ) : (
+        <Bloco titulo="Empresa">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className={rotulo}>Descrição (nome da empresa)<input id="nome" name="nome" required defaultValue={empresa.nome || ''} className={campo} /></label>
+          <label className={rotulo}>Rota
+            <input id="rota" name="rota" list="lista-rotas" defaultValue={empresa.rota || ''} placeholder="Ex.: Rota 4" className={campo} />
+            <datalist id="lista-rotas">{rotas.map((r) => <option key={r} value={r} />)}</datalist>
+          </label>
+          <label className={rotulo}>Endereço<input id="endereco" name="endereco" defaultValue={empresa.endereco || ''} className={campo} /></label>
+          <label className={rotulo}>Bairro<input id="bairro" name="bairro" defaultValue={empresa.bairro || ''} className={campo} /></label>
+          <label className={rotulo}>Telefone<input id="telefone" name="telefone" type="tel" inputMode="tel" defaultValue={empresa.telefone || ''} placeholder="(55) 99999-9999" className={campo} /></label>
+          <label className={rotulo}>Contato<input id="contato" name="contato" defaultValue={empresa.contato || ''} placeholder="Com quem falou" className={campo} /></label>
+        </div>
+        </Bloco>
+      )}
 
       <Bloco titulo="Visita">
         <div className="grid gap-4 sm:grid-cols-3">
           <label className={rotulo}>Data da visita<input id="data_visita" name="data_visita" type="date" required defaultValue={visita.data_visita || hoje} className={campo} /></label>
-          <Hora id="hora_chegada" titulo="Hora de chegada" valor={visita.hora_chegada?.slice(0, 5)} />
+          <Hora id="hora_chegada" titulo="Hora de chegada" valor={visita.id ? visita.hora_chegada?.slice(0, 5) : visita.hora_chegada?.slice(0, 5) || agoraInicial} />
           <Hora id="hora_saida" titulo="Hora de saída" valor={visita.hora_saida?.slice(0, 5)} />
         </div>
         {vendedores.length > 0 && !visita.id && (
@@ -107,7 +134,7 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
             </select>
           </label>
         )}
-        <p className="text-xs text-gray-500">A duração é calculada a partir das horas de chegada e saída.</p>
+        <p className="text-xs text-gray-500">A chegada já vem com a hora em que a ficha foi aberta. Ao sair da empresa, toque em <b>Agora</b> na saída. A duração é calculada sozinha.</p>
       </Bloco>
 
       <Bloco titulo="Perfil do cliente">
@@ -138,7 +165,7 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
         </div>
       </Bloco>
 
-      <div className="sticky bottom-0 flex justify-end bg-gradient-to-t from-gray-50 via-gray-50 to-transparent py-3"><Salvar /></div>
+      <div className="sticky bottom-[72px] lg:bottom-0 z-20 flex justify-end bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 [&>button]:w-full sm:[&>button]:w-auto"><Salvar /></div>
     </form>
   )
 }

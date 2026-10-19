@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import FichaForm from '@/components/externo/FichaForm'
 import { sessaoExterno, rotasDaEmpresa, vendedoresExternos } from '@/lib/externo/sessao'
-import { hojeSP, dm } from '@/lib/externo/metricas'
+import { hojeSP, agoraSP, dm } from '@/lib/externo/metricas'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +37,7 @@ export default async function NovaFicha({ searchParams }: { searchParams: { empr
         </p>
       )}
       {!empresa.id && <p className="text-sm text-gray-500">Empresa nova: preencha os dados abaixo. Se ela já está numa rota, escolha da lista para não duplicar.</p>}
-      <FichaForm empresa={empresa} visita={base} rotas={rotas} hoje={hojeSP()} vendedores={vendedores} />
+      <FichaForm empresa={empresa} visita={base} rotas={rotas} hoje={hojeSP()} vendedores={vendedores} agoraInicial={agoraSP()} />
     </div>
   )
 }
