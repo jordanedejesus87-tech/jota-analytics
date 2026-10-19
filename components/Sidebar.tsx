@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   BarChart2,
+  MapPinned,
+  KeyRound,
   X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -43,6 +45,12 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       label: 'Comercial',
       icon: TrendingUp,
       roles: ['admin', 'system', 'commercial'],
+    },
+    {
+      href: '/dashboard/externo',
+      label: 'Vendedor externo',
+      icon: MapPinned,
+      roles: ['admin', 'system', 'client', 'externo'],
     },
     {
       href: '/dashboard/admin',
@@ -79,7 +87,7 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {visibleItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = href === '/dashboard' ? pathname === href : pathname.startsWith(href)
           return (
             <Link
               key={href}
@@ -105,6 +113,14 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
           <p className="text-sm font-medium text-gray-900 truncate">{profile.name}</p>
           <p className="text-xs text-gray-400 capitalize">{profile.role}</p>
         </div>
+        <Link
+          href="/dashboard/senha"
+          onClick={onClose}
+          className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        >
+          <KeyRound className="w-4 h-4" />
+          Trocar senha
+        </Link>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"

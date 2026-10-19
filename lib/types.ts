@@ -1,4 +1,4 @@
-export type Role = 'system' | 'admin' | 'client' | 'commercial'
+export type Role = 'system' | 'admin' | 'client' | 'commercial' | 'externo'
 
 export interface Company {
   id: string
