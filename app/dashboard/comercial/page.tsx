@@ -13,7 +13,7 @@ export default async function ComercialPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'commercial'].includes(profile.role)) {
+  if (!profile || !['admin', 'commercial', 'client'].includes(profile.role)) {
     redirect('/dashboard')
   }
 

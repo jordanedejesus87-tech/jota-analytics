@@ -318,7 +318,7 @@ export default function CommercialDashboard({
             Olá, <span className="font-semibold text-gray-700">{currentUserName}</span> — acompanhe as vendas da equipe
           </p>
         </div>
-        <button
+        {currentUserRole !== 'client' && (<button
           onClick={() => {
             setFormAmount('')
             setFormTickets('')
@@ -331,7 +331,7 @@ export default function CommercialDashboard({
         >
           <Plus className="w-4 h-4" />
           Registrar Vendas do Dia
-        </button>
+        </button>)}
       </div>
 
       {/* Seletor de mês */}

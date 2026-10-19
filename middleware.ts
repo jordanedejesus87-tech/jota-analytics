@@ -68,9 +68,9 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // /dashboard/comercial: apenas admin, system e commercial
+    // /dashboard/comercial: admin, system, commercial e client (dono, só consulta)
     if (pathname.startsWith('/dashboard/comercial')) {
-      if (!['admin', 'system', 'commercial'].includes(role)) {
+      if (!['admin', 'system', 'commercial', 'client'].includes(role)) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
     }
