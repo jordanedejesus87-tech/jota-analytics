@@ -30,7 +30,7 @@ export default async function AdminPage() {
     <AdminPanel
       companies={companies ?? []}
       profiles={profiles ?? []}
-      snapshots={snapshots ?? []}
+      snapshots={(snapshots ?? []) as any}
     />
   )
 }
