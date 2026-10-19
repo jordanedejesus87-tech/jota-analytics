@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import CommercialDashboard from '@/components/CommercialDashboard'
+import { hojeSP } from '@/lib/comercial/metricas'
+import type { Role } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ComercialPage() {
   const supabase = createClient()
@@ -13,11 +17,11 @@ export default async function ComercialPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'commercial', 'client'].includes(profile.role)) {
+  if (!profile || !['admin', 'system', 'commercial', 'client'].includes(profile.role)) {
     redirect('/dashboard')
   }
 
-  // Buscar todos os dados de Ago/Set/Out 2026
+  // Histórico desde agosto/2026 (início do controle)
   const [
     { data: sales },
     { data: salespersonTargets },
@@ -28,22 +32,20 @@ export default async function ComercialPage() {
       .select('*')
       .eq('company_id', profile.company_id)
       .gte('sale_date', '2026-08-01')
-      .lte('sale_date', '2026-10-31')
+      .limit(20000)
       .order('sale_date', { ascending: false }),
 
     supabase
       .from('salesperson_targets')
       .select('*')
       .eq('company_id', profile.company_id)
-      .eq('year', 2026)
-      .in('month', [8, 9, 10]),
+      .gte('year', 2026),
 
     supabase
       .from('team_targets')
       .select('*')
       .eq('company_id', profile.company_id)
-      .eq('year', 2026)
-      .in('month', [8, 9, 10]),
+      .gte('year', 2026),
   ])
 
   return (
@@ -51,9 +53,10 @@ export default async function ComercialPage() {
       initialSales={sales ?? []}
       companyId={profile.company_id}
       currentUserName={profile.name}
-      currentUserRole={profile.role as 'admin' | 'client' | 'commercial'}
+      currentUserRole={profile.role as Role}
       salespersonTargets={salespersonTargets ?? []}
       teamTargets={teamTargets ?? []}
+      hoje={hojeSP()}
     />
   )
 }
