@@ -27,6 +27,7 @@ export default function VisitasView({ visitas, periodo, gestor, salvo, apagado }
                 <Link href={`/dashboard/externo/ficha/${v.id}`} className="block rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-indigo-300 active:bg-gray-50">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-gray-900">{v.cliente}</span>
+                    <span className={clsx('rounded-full px-2 text-xs font-semibold', v.tipo === 'followup' ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-600')}>{v.tipo === 'followup' ? 'Follow-up' : '1ª visita'}</span>
                     {Number(v.faturamento) > 0 && <span className="rounded-full bg-indigo-50 px-2 text-xs font-semibold text-indigo-700">{brl(v.faturamento)}</span>}
                     {v.possibilidade && <span className={clsx('rounded-full px-2 text-xs font-semibold', v.possibilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700' : v.possibilidade === 'Média' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500')}>{v.possibilidade}</span>}
                   </span>
@@ -34,6 +35,7 @@ export default function VisitasView({ visitas, periodo, gestor, salvo, apagado }
                     {v.hora_chegada ? v.hora_chegada.slice(0, 5) : 'sem hora'}{v.duracao_min ? ` (${v.duracao_min} min)` : ''} · {v.rota}{gestor ? ' · ' + v.vendedor : ''}{v.expectativa_pecas ? ` · ${num(v.expectativa_pecas)} peças esperadas` : ''}
                   </span>
                   {v.obs && <span className="block text-xs text-gray-500">{v.obs}{v.agendamento ? ' · retorno ' + v.agendamento : ''}</span>}
+                  {v.proximo_passo && <span className="block text-xs text-gray-700"><span className="font-medium">Próximo passo:</span> {v.proximo_passo}</span>}
                 </Link>
               </li>
             ))}

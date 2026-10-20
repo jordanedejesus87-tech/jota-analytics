@@ -24,6 +24,13 @@ export interface VisitaExt {
   vendedor_id: string
   empresa_id: number
   origem: string
+  tipo?: 'primeira' | 'followup'
+  objetivo?: string | null
+  proximo_passo?: string | null
+  retorno_data?: string | null
+  telefone?: string | null
+  endereco?: string | null
+  contato?: string | null
 }
 
 export interface Semana {
@@ -68,14 +75,14 @@ export const dm = (iso?: string | null) => (iso ? iso.slice(8, 10) + '/' + iso.s
 export const dmy = (iso?: string | null) => (iso ? dm(iso) + '/' + iso.slice(0, 4) : '')
 export const rotuloSemana = (k: string) => dm(k) + '–' + dm(somarDias(k, 6))
 
-export function classificar(v: Pick<VisitaExt, 'obs' | 'agendamento' | 'pecas_vendidas' | 'faturamento' | 'ja_comprou_laesc'>) {
+export function classificar(v: Pick<VisitaExt, 'obs' | 'agendamento' | 'pecas_vendidas' | 'faturamento' | 'ja_comprou_laesc'> & Partial<Pick<VisitaExt, 'proximo_passo' | 'retorno_data'>>) {
   const obs = norm(v.obs)
   const vendeu = (v.pecas_vendidas || 0) > 0 || Number(v.faturamento || 0) > 0
-  const ag = String(v.agendamento ?? '').trim()
+  const ag = String(v.agendamento ?? '').trim() || String(v.retorno_data ?? '').trim()
   return {
     vendeu,
     clienteNovo: vendeu && norm(v.ja_comprou_laesc) === 'nao',
-    proximoPasso: Boolean(ag) || PROX.test(obs) || vendeu,
+    proximoPasso: Boolean(ag) || Boolean(String(v.proximo_passo ?? '').trim()) || PROX.test(obs) || vendeu,
     soMaterial: MATERIAL.test(obs) && !ag,
   }
 }
@@ -191,10 +198,47 @@ export function oportunidades(visitas: VisitaExt[]) {
     .sort((a, b) => peso[a.possibilidade!] - peso[b.possibilidade!] || (b.expectativa_pecas || 0) - (a.expectativa_pecas || 0))
 }
 
-export function retornosAgendados(visitas: VisitaExt[]) {
+const ordemVisita = (a: VisitaExt, b: VisitaExt) => (a.data_visita + (a.hora_chegada || '') + String(a.id).padStart(9, '0')).localeCompare(b.data_visita + (b.hora_chegada || '') + String(b.id).padStart(9, '0'))
+
+/** Data do retorno: a coluna retorno_data ou um agendamento escrito como dd/mm/aaaa. */
+export function dataRetorno(v: Pick<VisitaExt, 'retorno_data' | 'agendamento'>): string | null {
+  if (v.retorno_data) return v.retorno_data
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v.agendamento ?? '').trim())
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null
+}
+
+export interface ItemAgenda { data: string | null; ultima: VisitaExt; visitas: number }
+export interface Agenda { atrasados: ItemAgenda[]; hoje: ItemAgenda[]; proximos: ItemAgenda[]; depois: ItemAgenda[]; semData: ItemAgenda[] }
+
+/** Agenda de retornos: a última visita de cada empresa com retorno marcado. Uma visita nova à empresa substitui o retorno anterior. */
+export function agenda(visitas: VisitaExt[], hoje: string, diasProximos = 7): Agenda {
   const ultimo = new Map<number, VisitaExt>()
-  for (const v of visitas) ultimo.set(v.empresa_id, v)
-  return Array.from(ultimo.values()).filter((v) => v.agendamento && !classificar(v).vendeu).reverse()
+  const qtd = new Map<number, number>()
+  for (const v of [...visitas].sort(ordemVisita)) {
+    ultimo.set(v.empresa_id, v)
+    qtd.set(v.empresa_id, (qtd.get(v.empresa_id) ?? 0) + 1)
+  }
+  const out: Agenda = { atrasados: [], hoje: [], proximos: [], depois: [], semData: [] }
+  const limite = somarDias(hoje, diasProximos)
+  for (const v of Array.from(ultimo.values())) {
+    const data = dataRetorno(v)
+    const item = { data, ultima: v, visitas: qtd.get(v.empresa_id) ?? 1 }
+    if (data) {
+      if (data < hoje) out.atrasados.push(item)
+      else if (data === hoje) out.hoje.push(item)
+      else if (data <= limite) out.proximos.push(item)
+      else out.depois.push(item)
+    } else if (String(v.agendamento ?? '').trim()) out.semData.push(item)
+  }
+  const porData = (a: ItemAgenda, b: ItemAgenda) => (a.data || '').localeCompare(b.data || '') || a.ultima.cliente.localeCompare(b.ultima.cliente)
+  out.atrasados.sort(porData); out.hoje.sort((a, b) => a.ultima.rota.localeCompare(b.ultima.rota) || porData(a, b)); out.proximos.sort(porData); out.depois.sort(porData)
+  return out
+}
+
+/** Compatibilidade com o painel: retornos marcados, do mais próximo para o mais distante. */
+export function retornosAgendados(visitas: VisitaExt[]) {
+  const a = agenda(visitas, hojeSP(), 3650)
+  return [...a.atrasados, ...a.hoje, ...a.proximos, ...a.semData].map((i) => i.ultima).filter((v) => !classificar(v).vendeu || dataRetorno(v))
 }
 
 export const brl = (v: number | string | null | undefined) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

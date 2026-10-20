@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { clsx } from 'clsx'
 import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
 import {
-  METAS, agregar, porSemana, oportunidades, retornosAgendados, segundaDe, dm,
+  METAS, agregar, porSemana, oportunidades, agenda, segundaDe, dm,
   brl, pct, num, noPeriodo, rotuloSemana, type Periodo, type VisitaExt,
 } from '@/lib/externo/metricas'
 
@@ -48,7 +48,8 @@ export default function PainelView({ visitas, periodo, hoje, gestor, vendedores,
   const maxFat = Math.max(1, ...semanas.map((x) => x.faturamento))
 
   const ops = oportunidades(visitas.filter((v) => v.data_visita <= periodo.ate)).slice(0, 12)
-  const retornos = retornosAgendados(visitas).slice(0, 12)
+  const ag = agenda(visitas, hoje)
+  const retornos = [...ag.atrasados, ...ag.hoje, ...ag.proximos, ...ag.depois].slice(0, 12)
   const deHoje = visitas.filter((v) => v.data_visita === hoje).length
 
   return (
@@ -71,6 +72,15 @@ export default function PainelView({ visitas, periodo, hoje, gestor, vendedores,
         </div>
       )}
       {erro && <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Não foi possível carregar as visitas: {erro}</p>}
+
+      {(ag.hoje.length > 0 || ag.atrasados.length > 0) && (
+        <Link href={`/dashboard/externo/agenda${gestor && vendedorId ? `?v=${vendedorId}` : ''}`} className="flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 hover:bg-indigo-100">
+          <span className="text-sm text-indigo-900">
+            <span className="font-bold">Agenda:</span> {ag.hoje.length} retorno(s) para hoje{ag.atrasados.length ? <> · <span className="font-semibold text-red-700">{ag.atrasados.length} atrasado(s)</span></> : null}
+          </span>
+          <span className="shrink-0 text-sm font-semibold text-indigo-700">Ver agenda →</span>
+        </Link>
+      )}
 
       <FiltroPeriodo de={periodo.de} ate={periodo.ate} atalho={periodo.atalho} rotulo={periodo.rotulo} />
 
@@ -108,14 +118,17 @@ export default function PainelView({ visitas, periodo, hoje, gestor, vendedores,
         <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-3">
           <h3 className="font-semibold text-gray-900">Retornos agendados</h3>
           {retornos.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhum retorno marcado. Preencha o Agendamento na ficha para ele aparecer aqui.</p>
+            <p className="text-sm text-gray-500">Nenhum retorno com data marcada. Use “Reagendar” ao salvar a visita para ele aparecer aqui e na Agenda.</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {retornos.map((v) => (
+              {retornos.map(({ ultima: v, data }) => (
                 <li key={v.id}>
-                  <Link href={`/dashboard/externo/ficha/nova?empresa=${v.empresa_id}`} className="block py-2.5 hover:bg-gray-50 -mx-2 px-2 rounded">
-                    <span className="font-medium text-gray-900">{v.cliente}</span> <span className="text-sm text-indigo-700">· {v.agendamento}</span>
-                    <span className="block text-xs text-gray-500">{v.obs || 'Sem anotação'} · visitada em {dm(v.data_visita)}</span>
+                  <Link href={`/dashboard/externo/ficha/nova?tipo=followup&empresa=${v.empresa_id}`} className="flex items-start justify-between gap-3 py-2.5 hover:bg-gray-50 -mx-2 px-2 rounded">
+                    <span className="min-w-0">
+                      <span className="font-medium text-gray-900">{v.cliente}</span>
+                      <span className="block text-xs text-gray-500 line-clamp-2">{v.proximo_passo || v.obs || 'Sem anotação'} · visitada em {dm(v.data_visita)}</span>
+                    </span>
+                    <span className={clsx('shrink-0 rounded-full px-2 text-xs font-semibold', data && data < hoje ? 'bg-red-50 text-red-700' : data === hoje ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700')}>{data === hoje ? 'hoje' : dm(data)}</span>
                   </Link>
                 </li>
               ))}

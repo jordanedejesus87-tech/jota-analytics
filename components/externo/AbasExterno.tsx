@@ -3,20 +3,22 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
-import { BarChart3, Building2, Plus, CalendarCheck, Route } from 'lucide-react'
+import { BarChart3, Building2, Plus, CalendarCheck, Route, CalendarClock } from 'lucide-react'
 
+// celular: false = só no computador (no celular, Rotas fica dentro de Empresas).
 const ABAS = [
-  { href: '/dashboard/externo', label: 'Painel', icon: BarChart3, editar: false },
-  { href: '/dashboard/externo/empresas', label: 'Empresas', icon: Building2, editar: false },
-  { href: '/dashboard/externo/ficha/nova', label: 'Nova visita', icon: Plus, editar: true },
-  { href: '/dashboard/externo/visitas', label: 'Visitas', icon: CalendarCheck, editar: false },
-  { href: '/dashboard/externo/rotas', label: 'Rotas', icon: Route, editar: false },
+  { href: '/dashboard/externo', label: 'Painel', icon: BarChart3, editar: false, celular: true },
+  { href: '/dashboard/externo/agenda', label: 'Agenda', icon: CalendarClock, editar: false, celular: true },
+  { href: '/dashboard/externo/ficha/nova', label: 'Nova visita', icon: Plus, editar: true, celular: true },
+  { href: '/dashboard/externo/visitas', label: 'Visitas', icon: CalendarCheck, editar: false, celular: true },
+  { href: '/dashboard/externo/empresas', label: 'Empresas', icon: Building2, editar: false, celular: true },
+  { href: '/dashboard/externo/rotas', label: 'Rotas', icon: Route, editar: false, celular: false },
 ]
 
 function useAtivo() {
   const path = usePathname()
   return (href: string) =>
-    href === '/dashboard/externo' ? path === href : path.startsWith(href) || (href.endsWith('/visitas') && /\/ficha\/\d+/.test(path))
+    href === '/dashboard/externo' ? path === href : path.startsWith(href) || (href.endsWith('/visitas') && /\/ficha\/\d+/.test(path)) || (href.endsWith('/empresas') && path.startsWith('/dashboard/externo/rotas'))
 }
 
 // Computador: abas no topo. Celular: barra fixa embaixo, ao alcance do polegar, com "Nova visita" em destaque.
@@ -35,8 +37,8 @@ export default function AbasExterno({ podeEditar }: { podeEditar: boolean }) {
       </nav>
 
       <nav aria-label="Vendedor externo" className="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div className="grid" style={{ gridTemplateColumns: `repeat(${abas.length}, minmax(0, 1fr))` }}>
-          {abas.map(({ href, label, icon: Icon, editar }) => (
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${abas.filter((a) => a.celular).length}, minmax(0, 1fr))` }}>
+          {abas.filter((a) => a.celular).map(({ href, label, icon: Icon, editar }) => (
             <Link key={href} href={href} aria-current={ativo(href) ? 'page' : undefined}
               className={clsx('flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium min-h-[60px]', ativo(href) ? 'text-indigo-700' : 'text-gray-500')}>
               {editar ? (
