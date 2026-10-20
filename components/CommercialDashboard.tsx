@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { Plus, X, Users, Calendar, AlertTriangle, ChevronRight, Target, CalendarDays, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import ResultadosComercial from '@/components/comercial/ResultadosComercial'
 import type { DailySale, SalespersonTarget, TeamTarget, Role } from '@/lib/types'
 import {
   MESES, MESES_CURTO, brl, pct, num, dm, diaDaSemana, diasUteis, semanas, indicadores, porSemana,
@@ -63,6 +64,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
   const meses = useMemo(() => mesesDisponiveis(hoje), [hoje])
   const [sel, setSel] = useState(() => meses[meses.length - 1])
   const [pessoa, setPessoa] = useState<string>('geral')
+  const [aba, setAba] = useState<'mes' | 'resultados'>('mes')
 
   // Lançamento de vendas
   const [form, setForm] = useState<null | { data: string; vendedor: string; valor: string; qtd: string }>(null)
@@ -189,6 +191,16 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
         </div>
       </div>
 
+      {/* Visões */}
+      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-full sm:w-fit">
+        {([['mes', 'Acompanhamento do mês'], ['resultados', 'Resultados por período']] as const).map(([id, rotulo]) => (
+          <button key={id} onClick={() => setAba(id)} className={clsx('flex-1 sm:flex-none rounded-lg px-4 py-2 text-sm font-semibold', aba === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{rotulo}</button>
+        ))}
+      </div>
+
+      {aba === 'resultados' && <ResultadosComercial vendas={sales} metasVend={metasVend} metasTime={metasTime} hoje={hoje} />}
+
+      {aba === 'mes' && (<>
       {/* Mês */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {meses.map((m) => {
@@ -390,6 +402,8 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
           </div>
         </section>
       )}
+
+      </>)}
 
       {/* Modal: lançar vendas */}
       {form && (
