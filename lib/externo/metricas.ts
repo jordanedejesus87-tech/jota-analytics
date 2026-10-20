@@ -244,3 +244,70 @@ export function retornosAgendados(visitas: VisitaExt[]) {
 export const brl = (v: number | string | null | undefined) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 export const pct = (v: number) => Math.round((v || 0) * 100) + '%'
 export const num = (v: number | null | undefined, d = 0) => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: d })
+
+// ── Dashboard de gestão ─────────────────────────────────────────────────────
+const diasEntreIso = (a: string, b: string) => Math.round((new Date(b + 'T12:00:00Z').getTime() - new Date(a + 'T12:00:00Z').getTime()) / 864e5)
+
+export interface RetornoFeito { visita: VisitaExt; previsto: string | null; atrasoDias: number }
+
+/** Follow-ups feitos no período, comparados com a data de retorno marcada na visita anterior da mesma empresa. */
+export function retornosFeitos(visitas: VisitaExt[], de: string, ate: string): RetornoFeito[] {
+  const anterior = new Map<number, VisitaExt>()
+  const out: RetornoFeito[] = []
+  for (const v of [...visitas].sort(ordemVisita)) {
+    const p = anterior.get(v.empresa_id)
+    if (p && noPeriodo(v, de, ate)) {
+      const previsto = dataRetorno(p)
+      out.push({ visita: v, previsto, atrasoDias: previsto ? Math.max(0, diasEntreIso(previsto, v.data_visita)) : 0 })
+    }
+    anterior.set(v.empresa_id, v)
+  }
+  return out
+}
+
+export interface ResumoGestao extends Resumo {
+  primeiras: number
+  followups: number
+  empresas: number
+  retornosNoPrazo: number
+  retornosAtrasados: number
+  retornosSemAgenda: number
+  atrasoMedio: number
+  ticketMedio: number
+  conversao: number
+  oportunidades: number
+  pecasOportunidade: number
+  comRetornoMarcado: number
+}
+
+export function resumoGestao(todas: VisitaExt[], de: string, ate: string): ResumoGestao {
+  const doPeriodo = todas.filter((v) => noPeriodo(v, de, ate))
+  const base = agregar(doPeriodo)
+  const ret = retornosFeitos(todas, de, ate)
+  const agendados = ret.filter((r) => r.previsto)
+  const atrasados = agendados.filter((r) => r.atrasoDias > 0)
+  const ops = doPeriodo.filter((v) => (v.expectativa_pecas || 0) > 0 && (v.possibilidade === 'Alta' || v.possibilidade === 'Média') && !classificar(v).vendeu)
+  return {
+    ...base,
+    primeiras: doPeriodo.length - ret.length,
+    followups: ret.length,
+    empresas: new Set(doPeriodo.map((v) => v.empresa_id)).size,
+    retornosNoPrazo: agendados.length - atrasados.length,
+    retornosAtrasados: atrasados.length,
+    retornosSemAgenda: ret.length - agendados.length,
+    atrasoMedio: atrasados.length ? atrasados.reduce((s, r) => s + r.atrasoDias, 0) / atrasados.length : 0,
+    ticketMedio: base.vendas ? base.faturamento / base.vendas : 0,
+    conversao: doPeriodo.length ? base.vendas / doPeriodo.length : 0,
+    oportunidades: ops.length,
+    pecasOportunidade: ops.reduce((s, v) => s + (v.expectativa_pecas || 0), 0),
+    comRetornoMarcado: doPeriodo.filter((v) => dataRetorno(v)).length,
+  }
+}
+
+export const diasDeAtraso = (data: string, hoje: string) => diasEntreIso(data, hoje)
+
+export function porRota(visitas: VisitaExt[]) {
+  const m = new Map<string, VisitaExt[]>()
+  for (const v of visitas) { if (!m.has(v.rota)) m.set(v.rota, []); m.get(v.rota)!.push(v) }
+  return Array.from(m.entries()).map(([rota, vs]) => ({ rota, ...agregar(vs) })).sort((a, b) => b.faturamento - a.faturamento || b.visitas - a.visitas)
+}

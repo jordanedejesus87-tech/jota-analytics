@@ -22,9 +22,9 @@ function useAtivo() {
 }
 
 // Computador: abas no topo. Celular: barra fixa embaixo, ao alcance do polegar, com "Nova visita" em destaque.
-export default function AbasExterno({ podeEditar }: { podeEditar: boolean }) {
+export default function AbasExterno({ podeEditar, gestor = false }: { podeEditar: boolean; gestor?: boolean }) {
   const ativo = useAtivo()
-  const abas = ABAS.filter((a) => podeEditar || !a.editar)
+  const abas = ABAS.filter((a) => podeEditar || !a.editar).map((a) => (gestor && a.href === '/dashboard/externo' ? { ...a, label: 'Resultados' } : a))
   return (
     <>
       <nav aria-label="Vendedor externo" className="hidden lg:flex gap-1 border-b border-gray-200">

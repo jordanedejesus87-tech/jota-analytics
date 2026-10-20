@@ -1,4 +1,5 @@
 import PainelView from '@/components/externo/PainelView'
+import ResultadosView from '@/components/externo/ResultadosView'
 import { sessaoExterno, vendedoresExternos } from '@/lib/externo/sessao'
 import { hojeSP, resolverPeriodo, type VisitaExt } from '@/lib/externo/metricas'
 
@@ -15,6 +16,9 @@ export default async function PainelExterno({ searchParams }: { searchParams: { 
     : { data: [], error: null }
 
   const hoje = hojeSP()
+  if (gestor) {
+    return <ResultadosView visitas={(data ?? []) as VisitaExt[]} periodo={resolverPeriodo(searchParams, hoje)} hoje={hoje} vendedores={vendedores} vendedorId={vendedorId} nome={nome} />
+  }
   return (
     <PainelView
       visitas={(data ?? []) as VisitaExt[]}
