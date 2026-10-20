@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Company, Profile } from '@/lib/types'
-import { Upload, Users, Building2, Database, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, Users, Building2, Database, CheckCircle, AlertCircle, KeyRound, X, Eye, EyeOff } from 'lucide-react'
 
 interface Snapshot {
   id: string
@@ -18,11 +18,39 @@ interface Props {
   companies: Company[]
   profiles: (Profile & { company: { name: string } | null })[]
   snapshots: Snapshot[]
+  logins: { id: string; email: string; ultimo_acesso: string | null }[]
+  meuId: string
 }
 
 type Tab = 'usuarios' | 'empresas' | 'dfc'
 
-export default function AdminPanel({ companies: initialCompanies, profiles, snapshots: initialSnapshots }: Props) {
+export default function AdminPanel({ companies: initialCompanies, profiles, snapshots: initialSnapshots, logins, meuId }: Props) {
+  const loginDe = (id: string) => logins.find((l) => l.id === id)
+  const [senhaDe, setSenhaDe] = useState<null | { id: string; nome: string; email: string }>(null)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [verSenha, setVerSenha] = useState(true)
+  const [senhaMsg, setSenhaMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [salvandoSenha, setSalvandoSenha] = useState(false)
+
+  function gerarSenha() {
+    const letras = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz'
+    const nums = '23456789'
+    const pick = (s: string, n: number) => Array.from(crypto.getRandomValues(new Uint32Array(n)), (x) => s[x % s.length]).join('')
+    setNovaSenha(pick(letras, 1).toUpperCase() + pick(letras, 5).toLowerCase() + '@' + pick(nums, 4))
+  }
+
+  async function salvarSenha(e: React.FormEvent) {
+    e.preventDefault()
+    if (!senhaDe) return
+    if (novaSenha.length < 8) return setSenhaMsg({ ok: false, text: 'A senha precisa ter pelo menos 8 caracteres.' })
+    setSalvandoSenha(true)
+    setSenhaMsg(null)
+    const { error } = await supabase.rpc('admin_definir_senha', { p_user: senhaDe.id, p_senha: novaSenha })
+    setSalvandoSenha(false)
+    if (error) return setSenhaMsg({ ok: false, text: error.message || 'Não foi possível salvar a senha.' })
+    setSenhaMsg({ ok: true, text: `Senha de ${senhaDe.nome} definida. Login: ${senhaDe.email} · Senha: ${novaSenha}` })
+  }
+
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('usuarios')
   const [snapshots, setSnapshots] = useState(initialSnapshots)
@@ -79,11 +107,12 @@ export default function AdminPanel({ companies: initialCompanies, profiles, snap
     { key: 'dfc',      label: 'Upload DFC', icon: Database },
   ]
 
-  const ROLE_LABEL: Record<string, string> = { admin: 'Admin', client: 'Cliente', commercial: 'Comercial' }
+  const ROLE_LABEL: Record<string, string> = { admin: 'Admin', system: 'Sistema', client: 'Dono / cliente', commercial: 'Comercial', externo: 'Vendedor externo' }
   const ROLE_COLOR: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700',
     client: 'bg-blue-100 text-blue-700',
     commercial: 'bg-green-100 text-green-700',
+    externo: 'bg-amber-100 text-amber-700',
   }
 
   return (
@@ -121,15 +150,18 @@ export default function AdminPanel({ companies: initialCompanies, profiles, snap
               <thead>
                 <tr className="bg-gray-50 text-xs uppercase text-gray-400 border-b border-gray-100">
                   <th className="text-left px-5 py-3 font-medium">Nome</th>
+                  <th className="text-left px-5 py-3 font-medium">Login (e-mail)</th>
                   <th className="text-left px-5 py-3 font-medium">Empresa</th>
                   <th className="text-left px-5 py-3 font-medium">Perfil</th>
-                  <th className="text-left px-5 py-3 font-medium">Desde</th>
+                  <th className="text-left px-5 py-3 font-medium">Último acesso</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {profiles.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{p.name}</td>
+                    <td className="px-5 py-3 text-gray-600">{loginDe(p.id)?.email ?? '—'}</td>
                     <td className="px-5 py-3 text-gray-500">{p.company?.name ?? '—'}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLOR[p.role] ?? ''}`}>
@@ -137,7 +169,17 @@ export default function AdminPanel({ companies: initialCompanies, profiles, snap
                       </span>
                     </td>
                     <td className="px-5 py-3 text-gray-400 text-xs">
-                      {new Date(p.created_at).toLocaleDateString('pt-BR')}
+                      {loginDe(p.id)?.ultimo_acesso ? new Date(loginDe(p.id)!.ultimo_acesso!).toLocaleDateString('pt-BR') : 'nunca entrou'}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {(!['admin', 'system'].includes(p.role) || p.id === meuId) && (
+                        <button
+                          onClick={() => { setSenhaDe({ id: p.id, nome: p.name, email: loginDe(p.id)?.email ?? '' }); setNovaSenha(''); setSenhaMsg(null); setVerSenha(true) }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 border border-indigo-200 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" /> Definir senha
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -146,8 +188,8 @@ export default function AdminPanel({ companies: initialCompanies, profiles, snap
           </div>
           <div className="px-5 py-3 bg-amber-50 border-t border-amber-100">
             <p className="text-xs text-amber-700">
-              Para criar ou editar usuários, acesse o painel do Supabase → Authentication → Users.
-              Após criar, associe a empresa e o perfil via Table Editor → profiles.
+              As senhas não ficam visíveis em lugar nenhum (nem aqui, nem no Supabase). Use “Definir senha” para criar uma nova,
+              passe para a pessoa e peça que ela troque em “Trocar senha” no primeiro acesso.
             </p>
           </div>
         </div>
@@ -284,6 +326,44 @@ export default function AdminPanel({ companies: initialCompanies, profiles, snap
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {senhaDe && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Definir senha</h2>
+                <p className="text-sm text-gray-500 mt-0.5">{senhaDe.nome} · {senhaDe.email}</p>
+              </div>
+              <button onClick={() => setSenhaDe(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            {senhaMsg?.ok ? (
+              <div className="space-y-4">
+                <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 flex items-start gap-2"><CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />{senhaMsg.text}</p>
+                <p className="text-xs text-gray-500">Anote agora — depois de fechar, a senha não aparece mais.</p>
+                <button onClick={() => setSenhaDe(null)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 rounded-lg">Fechar</button>
+              </div>
+            ) : (
+              <form onSubmit={salvarSenha} className="space-y-4">
+                <label className="block">
+                  <span className="block text-xs font-semibold text-gray-600 mb-1">Nova senha (mínimo 8 caracteres)</span>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input type={verSenha ? 'text' : 'password'} value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} autoComplete="new-password" className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      <button type="button" onClick={() => setVerSenha(!verSenha)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">{verSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                    </div>
+                    <button type="button" onClick={gerarSenha} className="px-3 text-xs font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Gerar</button>
+                  </div>
+                </label>
+                {senhaMsg && !senhaMsg.ok && <p className="text-sm text-red-700 bg-red-50 px-3 py-2 rounded-lg flex items-start gap-2"><AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{senhaMsg.text}</p>}
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setSenhaDe(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">Cancelar</button>
+                  <button type="submit" disabled={salvandoSenha} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-lg">{salvandoSenha ? 'Salvando…' : 'Salvar senha'}</button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -20,10 +20,12 @@ export default async function AdminPage() {
     { data: companies },
     { data: profiles },
     { data: snapshots },
+    { data: logins },
   ] = await Promise.all([
     supabase.from('companies').select('*').order('name'),
     supabase.from('profiles').select('*, company:companies(name)').order('name'),
     supabase.from('dfc_snapshots').select('id, company_id, year, period_label, created_at, company:companies(name)').order('created_at', { ascending: false }),
+    supabase.rpc('admin_logins'),
   ])
 
   return (
@@ -31,6 +33,8 @@ export default async function AdminPage() {
       companies={companies ?? []}
       profiles={profiles ?? []}
       snapshots={(snapshots ?? []) as any}
+      logins={(logins ?? []) as { id: string; email: string; ultimo_acesso: string | null }[]}
+      meuId={user.id}
     />
   )
 }
