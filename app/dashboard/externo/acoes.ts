@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { sessaoExterno } from '@/lib/externo/sessao'
+import { sessaoExterno, SEM_ROTA } from '@/lib/externo/sessao'
 
 export interface EstadoFicha { erros: string[] }
 
@@ -33,7 +33,7 @@ export async function salvarFicha(_estado: EstadoFicha, f: FormData): Promise<Es
   const visitaId = txt(f, 'visita_id')
   let empresaId = txt(f, 'empresa_id')
   const empresa = {
-    rota: txt(f, 'rota') || 'Sem rota',
+    rota: (txt(f, 'rota') === '__nova__' ? txt(f, 'rota_nova') : txt(f, 'rota')) || SEM_ROTA,
     nome: txt(f, 'nome'),
     endereco: txt(f, 'endereco'),
     bairro: txt(f, 'bairro'),
@@ -62,7 +62,12 @@ export async function salvarFicha(_estado: EstadoFicha, f: FormData): Promise<Es
   const rotulos: [keyof typeof visita, string][] = [['n_funcionarios', 'Nº de funcionários'], ['expectativa_pecas', 'Expectativa de venda'], ['pecas_vendidas', 'Peças vendidas']]
   for (const [k, rot] of rotulos) if (Number.isNaN(visita[k])) erros.push(`${rot}: use só números.`)
   if (Number.isNaN(visita.faturamento)) erros.push('Faturamento: use um valor como 3490,00.')
+  if (txt(f, 'rota') === '__nova__' && !txt(f, 'rota_nova')) erros.push('Digite o nome da rota nova.')
   if (erros.length) return { erros }
+
+  if (empresa.rota !== SEM_ROTA) {
+    await supabase.from('ext_rotas').upsert({ company_id: profile.company_id, nome: empresa.rota }, { onConflict: 'company_id,nome', ignoreDuplicates: true })
+  }
 
   if (empresaId) {
     const { error } = await supabase.from('ext_empresas').update(empresa).eq('id', empresaId)
@@ -75,11 +80,11 @@ export async function salvarFicha(_estado: EstadoFicha, f: FormData): Promise<Es
 
   if (visitaId) {
     const { error } = await supabase.from('ext_visitas').update({ ...visita, empresa_id: empresaId }).eq('id', visitaId)
-    if (error) return { erros: ['Não foi possível salvar a ficha: ' + error.message] }
+    if (error) return { erros: ['Não foi possível salvar a visita: ' + error.message] }
   } else {
     const vendedor = profile.role !== 'externo' && txt(f, 'vendedor_id') ? txt(f, 'vendedor_id') : user.id
     const { error } = await supabase.from('ext_visitas').insert({ ...visita, empresa_id: empresaId, vendedor_id: vendedor, company_id: profile.company_id })
-    if (error) return { erros: ['Não foi possível salvar a ficha: ' + error.message] }
+    if (error) return { erros: ['Não foi possível salvar a visita: ' + error.message] }
   }
   revalidatePath('/dashboard/externo')
   redirect('/dashboard/externo/visitas?salvo=1')

@@ -16,7 +16,7 @@ export default async function EditarFicha({ params }: { params: { id: string } }
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Ficha · {empresa?.nome}</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Visita · {empresa?.nome}</h2>
         <p className="text-sm text-gray-500">Visita de {dmy(visita.data_visita)}{visita.origem === 'planilha' ? ' · importada da planilha' : ''}</p>
       </div>
       {podeEditar ? (

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
 import { salvarFicha, type EstadoFicha } from '@/app/dashboard/externo/acoes'
 
@@ -10,7 +11,7 @@ function Salvar() {
   const { pending } = useFormStatus()
   return (
     <button type="submit" disabled={pending} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:opacity-60">
-      {pending ? 'Salvando…' : 'Salvar ficha'}
+      {pending ? 'Salvando…' : 'Salvar visita'}
     </button>
   )
 }
@@ -43,6 +44,25 @@ function Hora({ id, titulo, valor }: { id: string; titulo: string; valor?: strin
         <button type="button" onClick={() => { (document.getElementById(id) as HTMLInputElement).value = agora() }} className="rounded-lg border border-indigo-600 px-3 text-sm font-semibold text-indigo-700">Agora</button>
       </span>
     </label>
+  )
+}
+
+function CampoRota({ rotas, atual }: { rotas: string[]; atual?: string | null }) {
+  const inicial = atual && atual !== 'Sem rota' ? atual : ''
+  const lista = inicial && !rotas.includes(inicial) ? [inicial, ...rotas] : rotas
+  const [valor, setValor] = useState(inicial)
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor="rota" className="text-sm font-medium text-gray-700">Rota</label>
+      <select id="rota" name="rota" value={valor} onChange={(e) => setValor(e.target.value)} className={campo}>
+        <option value="">Sem rota</option>
+        {lista.map((r) => <option key={r} value={r}>{r}</option>)}
+        <option value="__nova__">+ Criar rota nova…</option>
+      </select>
+      {valor === '__nova__' && (
+        <input name="rota_nova" autoFocus placeholder="Nome da rota nova (ex.: Rota 5, Lavras)" className={campo} />
+      )}
+    </div>
   )
 }
 
@@ -94,10 +114,7 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
           <div className="border-t border-gray-100 p-4 sm:p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={rotulo}>Descrição (nome da empresa)<input id="nome" name="nome" required defaultValue={empresa.nome || ''} className={campo} /></label>
-          <label className={rotulo}>Rota
-            <input id="rota" name="rota" list="lista-rotas" defaultValue={empresa.rota || ''} placeholder="Ex.: Rota 4" className={campo} />
-            <datalist id="lista-rotas">{rotas.map((r) => <option key={r} value={r} />)}</datalist>
-          </label>
+          <CampoRota rotas={rotas} atual={empresa.rota} />
           <label className={rotulo}>Endereço<input id="endereco" name="endereco" defaultValue={empresa.endereco || ''} className={campo} /></label>
           <label className={rotulo}>Bairro<input id="bairro" name="bairro" defaultValue={empresa.bairro || ''} className={campo} /></label>
           <label className={rotulo}>Telefone<input id="telefone" name="telefone" type="tel" inputMode="tel" defaultValue={empresa.telefone || ''} placeholder="(55) 99999-9999" className={campo} /></label>
@@ -109,10 +126,7 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
         <Bloco titulo="Empresa">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={rotulo}>Descrição (nome da empresa)<input id="nome" name="nome" required defaultValue={empresa.nome || ''} className={campo} /></label>
-          <label className={rotulo}>Rota
-            <input id="rota" name="rota" list="lista-rotas" defaultValue={empresa.rota || ''} placeholder="Ex.: Rota 4" className={campo} />
-            <datalist id="lista-rotas">{rotas.map((r) => <option key={r} value={r} />)}</datalist>
-          </label>
+          <CampoRota rotas={rotas} atual={empresa.rota} />
           <label className={rotulo}>Endereço<input id="endereco" name="endereco" defaultValue={empresa.endereco || ''} className={campo} /></label>
           <label className={rotulo}>Bairro<input id="bairro" name="bairro" defaultValue={empresa.bairro || ''} className={campo} /></label>
           <label className={rotulo}>Telefone<input id="telefone" name="telefone" type="tel" inputMode="tel" defaultValue={empresa.telefone || ''} placeholder="(55) 99999-9999" className={campo} /></label>
@@ -134,7 +148,7 @@ export default function FichaForm({ empresa = {}, visita = {}, rotas, hoje, vend
             </select>
           </label>
         )}
-        <p className="text-xs text-gray-500">A chegada já vem com a hora em que a ficha foi aberta. Ao sair da empresa, toque em <b>Agora</b> na saída. A duração é calculada sozinha.</p>
+        <p className="text-xs text-gray-500">A chegada já vem com a hora em que a visita foi aberta. Ao sair da empresa, toque em <b>Agora</b> na saída. A duração é calculada sozinha.</p>
       </Bloco>
 
       <Bloco titulo="Perfil do cliente">

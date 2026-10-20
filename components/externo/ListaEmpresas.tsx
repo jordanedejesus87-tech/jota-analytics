@@ -21,9 +21,9 @@ const telLimpo = (t: string | null) => { const d = String(t ?? '').replace(/\D/g
 const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
 const campo = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
-export default function ListaEmpresas({ empresas, rotas, podeEditar }: { empresas: EmpresaLista[]; rotas: string[]; podeEditar: boolean }) {
+export default function ListaEmpresas({ empresas, rotas, podeEditar, rotaInicial = '' }: { empresas: EmpresaLista[]; rotas: string[]; podeEditar: boolean; rotaInicial?: string }) {
   const [busca, setBusca] = useState('')
-  const [rota, setRota] = useState('')
+  const [rota, setRota] = useState(rotas.includes(rotaInicial) ? rotaInicial : '')
   const [situacao, setSituacao] = useState('')
 
   const lista = useMemo(() => {

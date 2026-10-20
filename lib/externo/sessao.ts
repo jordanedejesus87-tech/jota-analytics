@@ -18,7 +18,16 @@ export async function vendedoresExternos(supabase: ReturnType<typeof createClien
   return data ?? []
 }
 
+export const SEM_ROTA = 'Sem rota'
+export const ordenarRotas = (a: string, b: string) => a.localeCompare(b, 'pt-BR', { numeric: true })
+
+/** Rotas cadastradas (tabela ext_rotas) + qualquer rota antiga que ainda esteja só nas empresas. */
 export async function rotasDaEmpresa(supabase: ReturnType<typeof createClient>, companyId: string) {
-  const { data } = await supabase.from('ext_empresas').select('rota').eq('company_id', companyId).limit(5000)
-  return Array.from(new Set((data ?? []).map((r) => r.rota).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+  const [{ data: rotas }, { data: emp }] = await Promise.all([
+    supabase.from('ext_rotas').select('nome').eq('company_id', companyId),
+    supabase.from('ext_empresas').select('rota').eq('company_id', companyId).limit(5000),
+  ])
+  const nomes = new Set<string>([...(rotas ?? []).map((r) => r.nome), ...(emp ?? []).map((r) => r.rota)])
+  nomes.delete(SEM_ROTA)
+  return Array.from(nomes).filter(Boolean).sort(ordenarRotas)
 }

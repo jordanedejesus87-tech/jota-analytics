@@ -14,8 +14,8 @@ export default function VisitasView({ visitas, periodo, gestor, salvo, apagado }
 
   return (
     <div className="space-y-4">
-      {salvo && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Ficha salva.</p>}
-      {apagado && <p role="status" className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">Ficha apagada.</p>}
+      {salvo && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Visita salva.</p>}
+      {apagado && <p role="status" className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">Visita apagada.</p>}
       <FiltroPeriodo de={periodo.de} ate={periodo.ate} atalho={periodo.atalho} rotulo={`${periodo.rotulo} · ${visitas.length} visita(s)`} />
       {visitas.length === 0 && <p className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">Nenhuma visita nesse período.</p>}
       {Array.from(dias.entries()).map(([dia, lista]) => (

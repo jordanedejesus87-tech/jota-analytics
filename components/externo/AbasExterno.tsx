@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
-import { BarChart3, Building2, Plus, CalendarCheck } from 'lucide-react'
+import { BarChart3, Building2, Plus, CalendarCheck, Route } from 'lucide-react'
 
 const ABAS = [
   { href: '/dashboard/externo', label: 'Painel', icon: BarChart3, editar: false },
   { href: '/dashboard/externo/empresas', label: 'Empresas', icon: Building2, editar: false },
-  { href: '/dashboard/externo/ficha/nova', label: 'Nova ficha', icon: Plus, editar: true },
+  { href: '/dashboard/externo/ficha/nova', label: 'Nova visita', icon: Plus, editar: true },
   { href: '/dashboard/externo/visitas', label: 'Visitas', icon: CalendarCheck, editar: false },
+  { href: '/dashboard/externo/rotas', label: 'Rotas', icon: Route, editar: false },
 ]
 
 function useAtivo() {
@@ -18,7 +19,7 @@ function useAtivo() {
     href === '/dashboard/externo' ? path === href : path.startsWith(href) || (href.endsWith('/visitas') && /\/ficha\/\d+/.test(path))
 }
 
-// Computador: abas no topo. Celular: barra fixa embaixo, ao alcance do polegar, com "Nova ficha" em destaque.
+// Computador: abas no topo. Celular: barra fixa embaixo, ao alcance do polegar, com "Nova visita" em destaque.
 export default function AbasExterno({ podeEditar }: { podeEditar: boolean }) {
   const ativo = useAtivo()
   const abas = ABAS.filter((a) => podeEditar || !a.editar)

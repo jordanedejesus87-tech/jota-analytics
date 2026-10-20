@@ -28,7 +28,7 @@ export default async function NovaFicha({ searchParams }: { searchParams: { empr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{empresa.id ? `Nova ficha · ${empresa.nome}` : 'Nova ficha de atendimento'}</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{empresa.id ? `Nova visita · ${empresa.nome}` : 'Nova visita'}</h2>
         {!empresa.id && <Link href="/dashboard/externo/empresas" className="text-sm font-semibold text-indigo-700 underline">Escolher empresa da lista</Link>}
       </div>
       {anterior && (
