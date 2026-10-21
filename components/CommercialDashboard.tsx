@@ -55,7 +55,7 @@ interface Props {
 export default function CommercialDashboard({ initialSales, companyId, currentUserName, currentUserRole, salespersonTargets, teamTargets, hoje }: Props) {
   const supabase = createClient()
   const gestor = currentUserRole === 'admin' || currentUserRole === 'system'
-  const podeLancar = gestor || currentUserRole === 'commercial'
+  const podeLancar = gestor || currentUserRole === 'commercial' || currentUserRole === 'externo'
 
   const [sales, setSales] = useState<Venda[]>(() => initialSales.map((s) => ({ ...s, total_amount: n(s.total_amount), ticket_count: n(s.ticket_count) })))
   const [metasVend, setMetasVend] = useState(() => salespersonTargets.map((t) => ({ ...t, target_amount: n(t.target_amount) })))
@@ -102,7 +102,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
   })
   const semanaDo = new Map(semanas(dias).flatMap((s, i) => s.dias.map((d) => [d, i + 1] as const)))
 
-  const podeEditarDe = (nome: string) => gestor || (currentUserRole === 'commercial' && nome === currentUserName)
+  const podeEditarDe = (nome: string) => gestor || ((currentUserRole === 'commercial' || currentUserRole === 'externo') && nome === currentUserName)
 
   function abrirLancamento(data = hoje <= dias[dias.length - 1] && hoje >= dias[0] ? hoje : dias[dias.length - 1], vendedor?: string) {
     const quem = vendedor ?? (gestor ? (pessoa !== 'geral' ? pessoa : todosVendedores[0] ?? currentUserName) : currentUserName)

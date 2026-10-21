@@ -41,8 +41,8 @@ export async function middleware(request: NextRequest) {
 
     const role = profile?.role ?? 'client'
 
-    // externo (vendedor de rua) → só o módulo Vendedor externo
-    if (role === 'externo' && !pathname.startsWith('/dashboard/externo') && pathname !== '/dashboard/senha') {
+    // externo (vendedor de rua) → módulo Vendedor externo e Comercial (lança as próprias vendas)
+    if (role === 'externo' && !pathname.startsWith('/dashboard/externo') && !pathname.startsWith('/dashboard/comercial') && pathname !== '/dashboard/senha') {
       return NextResponse.redirect(new URL('/dashboard/externo', request.url))
     }
 
@@ -68,9 +68,9 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // /dashboard/comercial: admin, system, commercial e client (dono, só consulta)
+    // /dashboard/comercial: admin, system, commercial, externo e client (dono, só consulta)
     if (pathname.startsWith('/dashboard/comercial')) {
-      if (!['admin', 'system', 'commercial', 'client'].includes(role)) {
+      if (!['admin', 'system', 'commercial', 'client', 'externo'].includes(role)) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
     }

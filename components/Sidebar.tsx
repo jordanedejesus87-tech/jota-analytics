@@ -44,7 +44,7 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       href: '/dashboard/comercial',
       label: 'Comercial',
       icon: TrendingUp,
-      roles: ['admin', 'system', 'commercial', 'client'],
+      roles: ['admin', 'system', 'commercial', 'client', 'externo'],
     },
     {
       href: '/dashboard/externo',
