@@ -311,3 +311,22 @@ export function porRota(visitas: VisitaExt[]) {
   for (const v of visitas) { if (!m.has(v.rota)) m.set(v.rota, []); m.get(v.rota)!.push(v) }
   return Array.from(m.entries()).map(([rota, vs]) => ({ rota, ...agregar(vs) })).sort((a, b) => b.faturamento - a.faturamento || b.visitas - a.visitas)
 }
+
+// ── Linhas para as listas dos cards clicáveis ───────────────────────────────
+export interface LinhaLista {
+  id: number; data: string; hora: string | null; cliente: string; rota: string
+  etiqueta?: string; cor?: 'sky' | 'gray' | 'indigo' | 'red' | 'emerald' | 'amber'; texto?: string | null; valor?: string | null
+}
+
+export function paraLinha(v: VisitaExt, extra: Partial<LinhaLista> = {}): LinhaLista {
+  const fu = v.tipo === 'followup'
+  return {
+    id: v.id, data: v.data_visita, hora: v.hora_chegada, cliente: v.cliente, rota: v.rota,
+    etiqueta: fu ? 'Follow-up' : '1ª visita', cor: fu ? 'sky' : 'gray',
+    texto: [v.objetivo && `Objetivo: ${v.objetivo}`, v.obs, v.proximo_passo && `Próximo passo: ${v.proximo_passo}`].filter(Boolean).join(' · ') || null,
+    valor: Number(v.faturamento) > 0 ? brl(v.faturamento) : v.expectativa_pecas ? `${num(v.expectativa_pecas)} peças` : null,
+    ...extra,
+  }
+}
+
+export const recentesPrimeiro = (a: LinhaLista, b: LinhaLista) => (b.data + (b.hora || '')).localeCompare(a.data + (a.hora || ''))

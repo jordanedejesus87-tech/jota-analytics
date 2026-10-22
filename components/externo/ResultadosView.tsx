@@ -1,20 +1,11 @@
 import Link from 'next/link'
 import { clsx } from 'clsx'
 import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
+import TileDetalhe from '@/components/externo/TileDetalhe'
 import {
   METAS, resumoGestao, retornosFeitos, agenda, oportunidades, porRota, porSemana, segundaDe, noPeriodo,
-  dm, brl, pct, num, diasDeAtraso, rotuloSemana, type Periodo, type VisitaExt, type ItemAgenda,
+  dm, brl, pct, num, diasDeAtraso, rotuloSemana, classificar, dataRetorno, paraLinha, recentesPrimeiro, type Periodo, type VisitaExt, type ItemAgenda,
 } from '@/lib/externo/metricas'
-
-function Tile({ titulo, valor, linha, alerta, ok }: { titulo: string; valor: string; linha?: React.ReactNode; alerta?: boolean; ok?: boolean }) {
-  return (
-    <div className={clsx('rounded-xl border bg-white p-3 sm:p-4 min-w-0', alerta ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-200')}>
-      <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{titulo}</p>
-      <p className={clsx('text-xl sm:text-2xl font-bold leading-tight tabular-nums', alerta ? 'text-red-700' : ok === true ? 'text-emerald-700' : 'text-gray-900')}>{valor}</p>
-      {linha && <p className="text-xs text-gray-500 mt-1">{linha}</p>}
-    </div>
-  )
-}
 
 function Painel({ titulo, children, extra }: { titulo: string; children: React.ReactNode; extra?: React.ReactNode }) {
   return (
@@ -77,6 +68,27 @@ export default function ResultadosView({ visitas, periodo, hoje, vendedores, ven
   let semanas = porSemana(visitas).filter((s) => s.semana >= segundaDe(periodo.de) && s.semana <= periodo.ate)
   if (semanas.length < 2) semanas = porSemana(visitas).filter((s) => s.semana <= periodo.ate).slice(-8)
 
+  // Listas dos cards clicáveis
+  const fuPeriodo = retornosFeitos(visitas, periodo.de, periodo.ate)
+  const idsFu = new Set(fuPeriodo.map((x) => x.visita.id))
+  const ord = (l: ReturnType<typeof paraLinha>[]) => l.sort(recentesPrimeiro)
+  const L = {
+    todas: ord(doPeriodo.map((v) => paraLinha(v, idsFu.has(v.id) ? { etiqueta: 'Follow-up', cor: 'sky' } : { etiqueta: '1ª visita', cor: 'gray' }))),
+    primeiras: ord(doPeriodo.filter((v) => !idsFu.has(v.id)).map((v) => paraLinha(v, { etiqueta: '1ª visita', cor: 'gray' }))),
+    followups: ord(fuPeriodo.map(({ visita: v, previsto, atrasoDias }) => paraLinha(v, !previsto
+      ? { etiqueta: 'sem data marcada', cor: 'gray' }
+      : atrasoDias > 0 ? { etiqueta: `${atrasoDias} dia(s) de atraso (previsto ${dm(previsto)})`, cor: 'red' } : { etiqueta: `no prazo (previsto ${dm(previsto)})`, cor: 'emerald' }))),
+    atrasados: ag.atrasados.map(({ ultima: v, data }) => paraLinha(v, { etiqueta: `${diasDeAtraso(data!, hoje)} dia(s) de atraso · era ${dm(data)}`, cor: 'red', texto: v.proximo_passo || v.obs || null })),
+    vendas: ord(doPeriodo.filter((v) => classificar(v).vendeu).map((v) => paraLinha(v, { etiqueta: v.pecas_vendidas ? `${num(v.pecas_vendidas)} peças` : 'venda', cor: 'indigo', valor: brl(v.faturamento) }))),
+    oportunidades: ord(doPeriodo.filter((v) => (v.expectativa_pecas || 0) > 0 && (v.possibilidade === 'Alta' || v.possibilidade === 'Média') && !classificar(v).vendeu)
+      .map((v) => paraLinha(v, { etiqueta: `chance ${v.possibilidade!.toLowerCase()}`, cor: v.possibilidade === 'Alta' ? 'emerald' : 'amber', valor: `${num(v.expectativa_pecas)} peças` }))),
+    novos: ord(doPeriodo.filter((v) => classificar(v).clienteNovo).map((v) => paraLinha(v, { etiqueta: 'cliente novo', cor: 'emerald', valor: brl(v.faturamento) }))),
+    duracao: doPeriodo.filter((v) => v.duracao_min).sort((x, y) => (y.duracao_min || 0) - (x.duracao_min || 0)).map((v) => paraLinha(v, { valor: `${v.duracao_min} min` })),
+    proximo: ord(doPeriodo.filter((v) => classificar(v).proximoPasso).map((v) => paraLinha(v))),
+    material: ord(doPeriodo.filter((v) => classificar(v).soMaterial).map((v) => paraLinha(v, { etiqueta: 'só material', cor: 'amber' }))),
+    comRetorno: ord(doPeriodo.filter((v) => dataRetorno(v)).map((v) => paraLinha(v, { etiqueta: `retorno ${dm(dataRetorno(v))}`, cor: 'sky' }))),
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -97,18 +109,24 @@ export default function ResultadosView({ visitas, periodo, hoje, vendedores, ven
 
       {/* Indicadores */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <Tile titulo="1ª visitas" valor={num(r.primeiras)} linha={<>Empresas visitadas pela primeira vez<br /><span className={r.visitas >= metaVisitas ? 'text-emerald-700' : ''}>Total de atividades: {r.visitas} · meta {metaVisitas}</span></>} />
-        <Tile titulo="Follow-ups" valor={num(r.followups)} linha={<>{r.retornosNoPrazo} no prazo · <span className={r.retornosAtrasados ? 'text-red-600 font-semibold' : ''}>{r.retornosAtrasados} com atraso</span>{r.retornosAtrasados ? ` (média ${num(r.atrasoMedio, 1)} dia(s))` : ''}{r.retornosSemAgenda ? ` · ${r.retornosSemAgenda} sem data marcada` : ''}</>} />
-        <Tile titulo="Retornos em atraso hoje" valor={num(ag.atrasados.length)} alerta={ag.atrasados.length > 0} linha={`${ag.hoje.length} para hoje · ${ag.proximos.length} nos próximos 7 dias`} />
-        <Tile titulo="Tempo médio de visita" valor={r.duracaoMedia ? `${num(r.duracaoMedia)} min` : '—'} linha={`${r.diasCampo} dia(s) de campo · ${r.empresas} empresa(s) visitada(s)`} />
-        <Tile titulo="Vendas" valor={num(r.vendas)} linha={<>{num(r.pecas)} peças · conversão {pct(r.conversao)}{temAnterior ? <><br />{varia(r.vendas, a.vendas, (x) => num(x))}</> : null}</>} />
-        <Tile titulo="Faturamento vendido" valor={brl(r.faturamento)} linha={<>Ticket médio {r.vendas ? brl(r.ticketMedio) : '—'}{temAnterior ? <><br />{varia(r.faturamento, a.faturamento, brl)}</> : null}</>} />
-        <Tile titulo="Oportunidades geradas" valor={num(r.oportunidades)} linha={`${num(r.pecasOportunidade)} peças em negociação (chance alta/média)`} />
-        <Tile titulo="Clientes novos" valor={num(r.clientesNovos)} ok={r.clientesNovos >= METAS.clientesNovos * semanasN} linha={`Meta ${METAS.clientesNovos * semanasN} no período`} />
-        <Tile titulo="Com próximo passo" valor={pct(r.pctProximoPasso)} ok={r.visitas ? r.pctProximoPasso >= METAS.pctProximoPasso : undefined} linha="Meta: 70% ou mais" />
-        <Tile titulo="Só material entregue" valor={pct(r.pctSoMaterial)} alerta={r.visitas > 0 && r.pctSoMaterial > METAS.pctSoMaterial} linha="Meta: até 20%" />
-        <Tile titulo="Visitas com retorno marcado" valor={r.visitas ? pct(r.comRetornoMarcado / r.visitas) : '—'} linha={`${r.comRetornoMarcado} de ${r.visitas} saíram com data de retorno`} />
-        <Tile titulo="Retornos no prazo" valor={r.retornosNoPrazo + r.retornosAtrasados ? pct(r.retornosNoPrazo / (r.retornosNoPrazo + r.retornosAtrasados)) : '—'} linha="Dos retornos que tinham data marcada" />
+        <TileDetalhe titulo="Atividades" valor={num(r.visitas)} ok={r.visitas >= metaVisitas} itens={L.todas}
+          linha={<>1ª visitas + follow-ups · meta {metaVisitas}<br />{num(r.visitasDia, 1)} por dia de campo · {r.empresas} empresa(s)</>} />
+        <TileDetalhe titulo="1ª visitas" valor={num(r.primeiras)} itens={L.primeiras} linha="Empresas visitadas pela primeira vez" />
+        <TileDetalhe titulo="Follow-ups" valor={num(r.followups)} itens={L.followups}
+          linha={<>{r.retornosNoPrazo} no prazo · <span className={r.retornosAtrasados ? 'text-red-600 font-semibold' : ''}>{r.retornosAtrasados} com atraso</span>{r.retornosAtrasados ? ` (média ${num(r.atrasoMedio, 1)} dia(s))` : ''}{r.retornosSemAgenda ? ` · ${r.retornosSemAgenda} sem data marcada` : ''}</>} />
+        <TileDetalhe titulo="Retornos em atraso hoje" valor={num(ag.atrasados.length)} alerta={ag.atrasados.length > 0} itens={L.atrasados} subtitulo="Retornos marcados que ainda não foram feitos"
+          linha={`${ag.hoje.length} para hoje · ${ag.proximos.length} nos próximos 7 dias`} />
+        <TileDetalhe titulo="Vendas" valor={num(r.vendas)} itens={L.vendas}
+          linha={<>{num(r.pecas)} peças · conversão {pct(r.conversao)}{temAnterior ? <><br />{varia(r.vendas, a.vendas, (x) => num(x))}</> : null}</>} />
+        <TileDetalhe titulo="Faturamento vendido" valor={brl(r.faturamento)} itens={L.vendas}
+          linha={<>Ticket médio {r.vendas ? brl(r.ticketMedio) : '—'}{temAnterior ? <><br />{varia(r.faturamento, a.faturamento, brl)}</> : null}</>} />
+        <TileDetalhe titulo="Oportunidades geradas" valor={num(r.oportunidades)} itens={L.oportunidades} linha={`${num(r.pecasOportunidade)} peças em negociação (chance alta/média)`} />
+        <TileDetalhe titulo="Clientes novos" valor={num(r.clientesNovos)} ok={r.clientesNovos >= METAS.clientesNovos * semanasN} itens={L.novos} linha={`Meta ${METAS.clientesNovos * semanasN} no período`} />
+        <TileDetalhe titulo="Tempo médio de visita" valor={r.duracaoMedia ? `${num(r.duracaoMedia)} min` : '—'} itens={L.duracao} subtitulo="Da visita mais longa para a mais curta"
+          linha={`${r.diasCampo} dia(s) de campo`} />
+        <TileDetalhe titulo="Com próximo passo" valor={pct(r.pctProximoPasso)} ok={r.visitas ? r.pctProximoPasso >= METAS.pctProximoPasso : undefined} itens={L.proximo} linha="Meta: 70% ou mais" />
+        <TileDetalhe titulo="Só material entregue" valor={pct(r.pctSoMaterial)} alerta={r.visitas > 0 && r.pctSoMaterial > METAS.pctSoMaterial} itens={L.material} linha="Meta: até 20%" />
+        <TileDetalhe titulo="Visitas com retorno marcado" valor={r.visitas ? pct(r.comRetornoMarcado / r.visitas) : '—'} itens={L.comRetorno} linha={`${r.comRetornoMarcado} de ${r.visitas} saíram com data de retorno`} />
       </div>
       <p className="text-xs text-gray-400">Período anterior para comparação: {dm(periodo.antDe)} a {dm(periodo.antAte)}. Metas de visitas e clientes novos proporcionais a {semanasN} semana(s).</p>
 

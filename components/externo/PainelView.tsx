@@ -1,21 +1,11 @@
 import Link from 'next/link'
 import { clsx } from 'clsx'
 import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
+import TileDetalhe from '@/components/externo/TileDetalhe'
 import {
   METAS, agregar, porSemana, oportunidades, agenda, retornosFeitos, segundaDe, dm,
-  brl, pct, num, noPeriodo, rotuloSemana, type Periodo, type VisitaExt,
+  brl, pct, num, noPeriodo, rotuloSemana, classificar, paraLinha, recentesPrimeiro, type Periodo, type VisitaExt,
 } from '@/lib/externo/metricas'
-
-function Tile({ titulo, valor, linha1, linha2, ok }: { titulo: string; valor: string; linha1?: string | null; linha2?: string; ok?: boolean }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 min-w-0">
-      <p className="text-[11px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{titulo}</p>
-      <p className="text-xl sm:text-2xl font-bold leading-tight text-gray-900 tabular-nums break-words">{valor}</p>
-      {linha1 && <p className="text-xs text-gray-500 mt-1">{linha1}</p>}
-      {linha2 && <p className={clsx('text-xs mt-0.5', ok === undefined ? 'text-gray-400' : ok ? 'text-emerald-600' : 'text-red-600')}>{linha2}</p>}
-    </div>
-  )
-}
 
 const delta = (v: number, f: (x: number) => string) => (Math.abs(v) < 1e-9 ? 'igual ao período anterior' : `${v > 0 ? '+' : '−'}${f(Math.abs(v))} vs. período anterior`)
 
@@ -38,6 +28,19 @@ export default function PainelView({ visitas, periodo, hoje, gestor, vendedores,
   const fuAnt = retornosFeitos(visitas, periodo.antDe, periodo.antAte)
   const primeiras = s.visitas - fu.length
   const fuAtraso = fu.filter((r) => r.atrasoDias > 0).length
+  const idsFu = new Set(fu.map((x) => x.visita.id))
+  const ord = (l: ReturnType<typeof paraLinha>[]) => l.sort(recentesPrimeiro)
+  const L = {
+    todas: ord(doPeriodo.map((v) => paraLinha(v, idsFu.has(v.id) ? { etiqueta: 'Follow-up', cor: 'sky' } : { etiqueta: '1ª visita', cor: 'gray' }))),
+    primeiras: ord(doPeriodo.filter((v) => !idsFu.has(v.id)).map((v) => paraLinha(v, { etiqueta: '1ª visita', cor: 'gray' }))),
+    followups: ord(fu.map(({ visita: v, previsto, atrasoDias }) => paraLinha(v, !previsto ? { etiqueta: 'sem data marcada', cor: 'gray' }
+      : atrasoDias > 0 ? { etiqueta: `${atrasoDias} dia(s) de atraso`, cor: 'red' } : { etiqueta: 'no prazo', cor: 'emerald' }))),
+    vendas: ord(doPeriodo.filter((v) => classificar(v).vendeu).map((v) => paraLinha(v, { etiqueta: v.pecas_vendidas ? `${num(v.pecas_vendidas)} peças` : 'venda', cor: 'indigo', valor: brl(v.faturamento) }))),
+    novos: ord(doPeriodo.filter((v) => classificar(v).clienteNovo).map((v) => paraLinha(v, { etiqueta: 'cliente novo', cor: 'emerald', valor: brl(v.faturamento) }))),
+    proximo: ord(doPeriodo.filter((v) => classificar(v).proximoPasso).map((v) => paraLinha(v))),
+    material: ord(doPeriodo.filter((v) => classificar(v).soMaterial).map((v) => paraLinha(v, { etiqueta: 'só material', cor: 'amber' }))),
+    oportunidades: ord(doPeriodo.filter((v) => (v.expectativa_pecas || 0) > 0).map((v) => paraLinha(v, { etiqueta: v.possibilidade ? `chance ${v.possibilidade.toLowerCase()}` : undefined, cor: v.possibilidade === 'Alta' ? 'emerald' : v.possibilidade === 'Média' ? 'amber' : 'gray', valor: `${num(v.expectativa_pecas)} peças` }))),
+  }
   const a = agregar(anterior)
   const temAnterior = anterior.length > 0
   const semanasNoPeriodo = Math.max(1, Math.round(periodo.dias / 7))
@@ -88,14 +91,15 @@ export default function PainelView({ visitas, periodo, hoje, gestor, vendedores,
 
       <FiltroPeriodo de={periodo.de} ate={periodo.ate} atalho={periodo.atalho} rotulo={periodo.rotulo} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-        <Tile titulo="Faturamento vendido" valor={brl(s.faturamento)} linha1={temAnterior ? delta(s.faturamento - a.faturamento, brl) : null} linha2={s.vendas ? `${s.vendas} venda(s) · ${num(s.pecas)} peças` : 'Sem vendas no período'} />
-        <Tile titulo="Clientes novos" valor={num(s.clientesNovos)} linha1={temAnterior ? delta(s.clientesNovos - a.clientesNovos, (x) => num(x)) : null} linha2={`Meta: ${metaNovos} ou mais`} ok={s.clientesNovos >= metaNovos} />
-        <Tile titulo="1ª visitas" valor={num(primeiras)} linha1={temAnterior ? delta(primeiras - (a.visitas - fuAnt.length), (x) => num(x)) : null} linha2={`Total de atividades: ${s.visitas} · meta ${metaVisitas}`} ok={s.visitas >= metaVisitas} />
-        <Tile titulo="Follow-ups" valor={num(fu.length)} linha1={temAnterior ? delta(fu.length - fuAnt.length, (x) => num(x)) : null} linha2={fu.length ? `${fu.filter((r) => r.previsto && !r.atrasoDias).length} no prazo · ${fuAtraso} com atraso · ${fu.filter((r) => !r.previsto).length} sem data marcada` : 'Retornos a empresas já visitadas'} ok={fu.length ? fuAtraso === 0 : undefined} />
-        <Tile titulo="Com próximo passo" valor={pct(s.pctProximoPasso)} linha1={temAnterior ? delta(Math.round((s.pctProximoPasso - a.pctProximoPasso) * 100), (x) => x + ' p.p.') : null} linha2="Meta: 70% ou mais" ok={s.visitas ? s.pctProximoPasso >= METAS.pctProximoPasso : undefined} />
-        <Tile titulo="Só material entregue" valor={pct(s.pctSoMaterial)} linha1={temAnterior ? delta(Math.round((s.pctSoMaterial - a.pctSoMaterial) * 100), (x) => x + ' p.p.') : null} linha2="Meta: até 20%" ok={s.visitas ? s.pctSoMaterial <= METAS.pctSoMaterial : undefined} />
-        <Tile titulo="Peças em negociação" valor={num(s.expectativa)} linha2={`${num(s.diasCampo)} dia(s) de campo · ${s.duracaoMedia ? num(s.duracaoMedia) + ' min por visita' : 'sem duração'}`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <TileDetalhe titulo="Atividades" valor={num(s.visitas)} itens={L.todas} linha={temAnterior ? delta(s.visitas - a.visitas, (x) => num(x)) : null} linha2={`1ª visitas + follow-ups · meta ${metaVisitas}`} ok={s.visitas >= metaVisitas} />
+        <TileDetalhe titulo="1ª visitas" valor={num(primeiras)} itens={L.primeiras} linha={temAnterior ? delta(primeiras - (a.visitas - fuAnt.length), (x) => num(x)) : null} linha2="Empresas visitadas pela primeira vez" />
+        <TileDetalhe titulo="Follow-ups" valor={num(fu.length)} itens={L.followups} linha={temAnterior ? delta(fu.length - fuAnt.length, (x) => num(x)) : null} linha2={fu.length ? `${fu.filter((r) => r.previsto && !r.atrasoDias).length} no prazo · ${fuAtraso} com atraso · ${fu.filter((r) => !r.previsto).length} sem data marcada` : 'Retornos a empresas já visitadas'} ok={fu.length ? fuAtraso === 0 : undefined} />
+        <TileDetalhe titulo="Faturamento vendido" valor={brl(s.faturamento)} itens={L.vendas} linha={temAnterior ? delta(s.faturamento - a.faturamento, brl) : null} linha2={s.vendas ? `${s.vendas} venda(s) · ${num(s.pecas)} peças` : 'Sem vendas no período'} />
+        <TileDetalhe titulo="Clientes novos" valor={num(s.clientesNovos)} itens={L.novos} linha={temAnterior ? delta(s.clientesNovos - a.clientesNovos, (x) => num(x)) : null} linha2={`Meta: ${metaNovos} ou mais`} ok={s.clientesNovos >= metaNovos} />
+        <TileDetalhe titulo="Com próximo passo" valor={pct(s.pctProximoPasso)} itens={L.proximo} linha={temAnterior ? delta(Math.round((s.pctProximoPasso - a.pctProximoPasso) * 100), (x) => x + ' p.p.') : null} linha2="Meta: 70% ou mais" ok={s.visitas ? s.pctProximoPasso >= METAS.pctProximoPasso : undefined} />
+        <TileDetalhe titulo="Só material entregue" valor={pct(s.pctSoMaterial)} itens={L.material} linha={temAnterior ? delta(Math.round((s.pctSoMaterial - a.pctSoMaterial) * 100), (x) => x + ' p.p.') : null} linha2="Meta: até 20%" ok={s.visitas ? s.pctSoMaterial <= METAS.pctSoMaterial : undefined} />
+        <TileDetalhe titulo="Peças em negociação" valor={num(s.expectativa)} itens={L.oportunidades} linha2={`${num(s.diasCampo)} dia(s) de campo · ${s.duracaoMedia ? num(s.duracaoMedia) + ' min por visita' : 'sem duração'}`} />
       </div>
       <p className="text-xs text-gray-400">Período anterior para comparação: {dm(periodo.antDe)} a {dm(periodo.antAte)}. Metas de visitas e clientes novos proporcionais a {semanasNoPeriodo} semana(s).</p>
 
