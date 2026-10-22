@@ -97,8 +97,8 @@ export default function ResultadosView({ visitas, periodo, hoje, vendedores, ven
 
       {/* Indicadores */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <Tile titulo="Visitas" valor={num(r.visitas)} ok={r.visitas >= metaVisitas} linha={<>{r.primeiras} 1ª visita(s) · {r.followups} follow-up(s)<br />Meta {metaVisitas} · {num(r.visitasDia, 1)} por dia de campo</>} />
-        <Tile titulo="Retornos feitos" valor={num(r.followups)} linha={<>{r.retornosNoPrazo} no prazo · <span className={r.retornosAtrasados ? 'text-red-600 font-semibold' : ''}>{r.retornosAtrasados} com atraso</span>{r.retornosAtrasados ? ` (média ${num(r.atrasoMedio, 1)} dia(s))` : ''}{r.retornosSemAgenda ? ` · ${r.retornosSemAgenda} sem data marcada` : ''}</>} />
+        <Tile titulo="1ª visitas" valor={num(r.primeiras)} linha={<>Empresas visitadas pela primeira vez<br /><span className={r.visitas >= metaVisitas ? 'text-emerald-700' : ''}>Total de atividades: {r.visitas} · meta {metaVisitas}</span></>} />
+        <Tile titulo="Follow-ups" valor={num(r.followups)} linha={<>{r.retornosNoPrazo} no prazo · <span className={r.retornosAtrasados ? 'text-red-600 font-semibold' : ''}>{r.retornosAtrasados} com atraso</span>{r.retornosAtrasados ? ` (média ${num(r.atrasoMedio, 1)} dia(s))` : ''}{r.retornosSemAgenda ? ` · ${r.retornosSemAgenda} sem data marcada` : ''}</>} />
         <Tile titulo="Retornos em atraso hoje" valor={num(ag.atrasados.length)} alerta={ag.atrasados.length > 0} linha={`${ag.hoje.length} para hoje · ${ag.proximos.length} nos próximos 7 dias`} />
         <Tile titulo="Tempo médio de visita" valor={r.duracaoMedia ? `${num(r.duracaoMedia)} min` : '—'} linha={`${r.diasCampo} dia(s) de campo · ${r.empresas} empresa(s) visitada(s)`} />
         <Tile titulo="Vendas" valor={num(r.vendas)} linha={<>{num(r.pecas)} peças · conversão {pct(r.conversao)}{temAnterior ? <><br />{varia(r.vendas, a.vendas, (x) => num(x))}</> : null}</>} />
