@@ -12,6 +12,7 @@ import {
   BarChart2,
   MapPinned,
   KeyRound,
+  Globe,
   X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -51,6 +52,12 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       label: 'Vendedor externo',
       icon: MapPinned,
       roles: ['admin', 'system', 'client', 'externo'],
+    },
+    {
+      href: '/dashboard/site',
+      label: 'Site e Google Ads',
+      icon: Globe,
+      roles: ['admin', 'system', 'client'],
     },
     {
       href: '/dashboard/admin',
