@@ -83,18 +83,15 @@ export function ModalVenda({
           </label>
         ) : <p className="text-sm text-gray-600">Vendedor(a): <span className="font-semibold">{currentUserName}</span></p>}
 
-        <div>
-          <span className="block text-xs font-semibold text-gray-600 mb-1.5">De onde veio este cliente?</span>
-          <div className="grid grid-cols-2 gap-2">
-            {ORIGENS.map((o) => (
-              <button type="button" key={o.id} onClick={() => setForm({ ...form, origem: o.id, leadId: o.id === 'site_google' ? form.leadId : '' })}
-                className={clsx('text-left rounded-lg border px-3 py-2 text-sm font-semibold transition-all', form.origem === o.id ? `${o.cor} ring-2 ring-offset-1 ring-indigo-400` : 'border-gray-200 text-gray-600 hover:bg-gray-50')}>
-                {o.rotulo}
-              </button>
-            ))}
-          </div>
-          {form.origem && <p className="text-xs text-gray-500 mt-1.5">{infoOrigem(form.origem).ajuda}</p>}
-        </div>
+        <label className="block">
+          <span className="block text-xs font-semibold text-gray-600 mb-1">De onde veio este cliente?</span>
+          <select required value={form.origem} onChange={(e) => { const o = e.target.value as Origem | ''; setForm({ ...form, origem: o, leadId: o === 'site_google' ? form.leadId : '' }) }}
+            className={clsx(campo, !form.origem && 'text-gray-400')}>
+            <option value="" disabled>Selecione a origem…</option>
+            {ORIGENS.map((o) => <option key={o.id} value={o.id} className="text-gray-900">{o.rotulo}</option>)}
+          </select>
+          {form.origem && <span className="block text-xs text-gray-500 mt-1">{infoOrigem(form.origem).ajuda}</span>}
+        </label>
 
         {form.origem === 'site_google' && leads.length > 0 && (
           <label className="block">
