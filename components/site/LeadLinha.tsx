@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
 import { createClient } from '@/lib/supabase/client'
-import { STATUS, veioDoGoogle, type SiteLead, type StatusLead } from '@/lib/site/metricas'
+import { STATUS, infoCanal, type SiteLead, type StatusLead } from '@/lib/site/metricas'
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
@@ -36,7 +36,7 @@ export default function LeadLinha({ lead }: { lead: SiteLead }) {
           <span className="font-semibold text-gray-900">{lead.nome}</span>
           <span className="text-sm text-gray-500">{lead.cidade}{lead.empresa ? ` · ${lead.empresa}` : ''}</span>
           {st && <span className={clsx('rounded-full px-2 text-xs font-semibold', st.cor)}>{st.rotulo}</span>}
-          {veioDoGoogle(lead) && <span className="rounded-full bg-indigo-600 px-2 text-xs font-semibold text-white">Google Ads</span>}
+          {(() => { const c = infoCanal(lead.canal || (lead.gclid ? 'google_ads' : null)); return <span className={clsx('rounded-full px-2 text-xs font-semibold', c.cor)} title={lead.utm_campaign || lead.referrer || undefined}>{c.rotulo}</span> })()}
         </p>
         <p className="text-sm text-gray-700">{[lead.produtos, lead.quantidade, lead.segmento, lead.prazo].filter(Boolean).join(' · ')}</p>
         {lead.detalhes && <p className="text-xs text-gray-500 line-clamp-2">{lead.detalhes}</p>}

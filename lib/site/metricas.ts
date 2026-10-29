@@ -40,6 +40,67 @@ export interface SiteLead {
   gclid: string | null
   status: StatusLead
   valor_venda: number | null
+  canal: string | null
+  utm_source: string | null
+  utm_campaign: string | null
+  referrer: string | null
+}
+
+export interface SiteEvento {
+  created_at: string
+  tipo: 'whatsapp_click'
+  local: string | null
+  canal: string | null
+  utm_campaign: string | null
+}
+
+export type Grupo = 'pago' | 'organico'
+
+/** Canais de origem gravados pelo site (laesc.com.br) */
+export const CANAIS: Record<string, { rotulo: string; grupo: Grupo; cor: string }> = {
+  google_ads: { rotulo: 'Google Ads', grupo: 'pago', cor: 'bg-indigo-600 text-white' },
+  meta_ads: { rotulo: 'Anúncio Instagram/Facebook', grupo: 'pago', cor: 'bg-violet-600 text-white' },
+  outros_anuncios: { rotulo: 'Outros anúncios', grupo: 'pago', cor: 'bg-indigo-100 text-indigo-800' },
+  busca_organica: { rotulo: 'Google (orgânico)', grupo: 'organico', cor: 'bg-emerald-50 text-emerald-700' },
+  redes_sociais: { rotulo: 'Instagram/Facebook (orgânico)', grupo: 'organico', cor: 'bg-pink-50 text-pink-700' },
+  whatsapp: { rotulo: 'Link no WhatsApp', grupo: 'organico', cor: 'bg-green-50 text-green-700' },
+  outros_sites: { rotulo: 'Outros sites', grupo: 'organico', cor: 'bg-gray-100 text-gray-700' },
+  direto: { rotulo: 'Digitou o endereço', grupo: 'organico', cor: 'bg-amber-50 text-amber-700' },
+  nao_identificado: { rotulo: 'Sem origem registrada', grupo: 'organico', cor: 'bg-gray-100 text-gray-500' },
+}
+export const infoCanal = (c?: string | null) => CANAIS[c || 'nao_identificado'] ?? { rotulo: c || 'Sem origem', grupo: 'organico' as Grupo, cor: 'bg-gray-100 text-gray-600' }
+
+export interface LinhaCanal {
+  canal: string
+  rotulo: string
+  grupo: Grupo
+  orcamentos: number
+  whatsapp: number
+  contatos: number
+  vendas: number
+  faturamento: number
+}
+
+export function porCanal(leads: SiteLead[], eventos: SiteEvento[]): LinhaCanal[] {
+  const m = new Map<string, LinhaCanal>()
+  const linha = (c: string) => {
+    if (!m.has(c)) { const i = infoCanal(c); m.set(c, { canal: c, rotulo: i.rotulo, grupo: i.grupo, orcamentos: 0, whatsapp: 0, contatos: 0, vendas: 0, faturamento: 0 }) }
+    return m.get(c)!
+  }
+  for (const l of leads) {
+    const x = linha(l.canal || (l.gclid ? 'google_ads' : 'nao_identificado'))
+    x.orcamentos++; x.contatos++
+    if (l.status === 'vendido') { x.vendas++; x.faturamento += Number(l.valor_venda || 0) }
+  }
+  for (const e of eventos) { const x = linha(e.canal || 'nao_identificado'); x.whatsapp++; x.contatos++ }
+  return Array.from(m.values()).sort((a, b) => (a.grupo === b.grupo ? b.contatos - a.contatos : a.grupo === 'pago' ? -1 : 1))
+}
+
+export function somarGrupo(linhas: LinhaCanal[], g: Grupo) {
+  return linhas.filter((l) => l.grupo === g).reduce((a, l) => ({
+    orcamentos: a.orcamentos + l.orcamentos, whatsapp: a.whatsapp + l.whatsapp, contatos: a.contatos + l.contatos,
+    vendas: a.vendas + l.vendas, faturamento: a.faturamento + l.faturamento,
+  }), { orcamentos: 0, whatsapp: 0, contatos: 0, vendas: 0, faturamento: 0 })
 }
 
 export const STATUS: { id: StatusLead; rotulo: string; cor: string }[] = [
@@ -54,7 +115,7 @@ export const STATUS: { id: StatusLead; rotulo: string; cor: string }[] = [
 export const dataLead = (l: Pick<SiteLead, 'created_at'>) =>
   new Date(new Date(l.created_at).getTime() - 3 * 3600e3).toISOString().slice(0, 10)
 
-export const veioDoGoogle = (l: Pick<SiteLead, 'gclid' | 'origem'>) => Boolean(l.gclid) || /google|cpc|ads/i.test(l.origem || '')
+export const veioDoGoogle = (l: Pick<SiteLead, 'gclid' | 'origem'> & { canal?: string | null }) => l.canal ? infoCanal(l.canal).grupo === 'pago' : Boolean(l.gclid)
 
 export interface ResumoAds {
   investimento: number

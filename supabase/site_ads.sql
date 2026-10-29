@@ -91,3 +91,8 @@ revoke all on function public.ads_ultimo_envio(uuid) from public;
 grant execute on function public.ads_ultimo_envio(uuid) to authenticated;
 
 -- A chave da LAESC é cadastrada à parte (hash sha256), fora do repositório.
+
+-- 29/10/2026 — origem dos contatos (anúncio x orgânico), migração site_origem_canal:
+-- site_leads ganhou canal, utm_source, utm_medium, utm_campaign, referrer, sessao;
+-- nova tabela site_eventos (cliques no WhatsApp, um por visita) e funções públicas site_lead / site_evento (p_slug, p_dados jsonb).
+-- Canais: google_ads, meta_ads, outros_anuncios (pagos) · busca_organica, redes_sociais, whatsapp, outros_sites, direto, nao_identificado (orgânicos).

@@ -3,8 +3,8 @@ import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
 import LeadLinha from '@/components/site/LeadLinha'
 import { brl, num, dm, type Periodo } from '@/lib/externo/metricas'
 import {
-  resumirAds, resumirLeads, porCampanha, porTermo, serieDiaria, dataLead,
-  type AdsDia, type AdsTermo, type SiteLead,
+  resumirAds, resumirLeads, porCampanha, porTermo, serieDiaria, dataLead, porCanal, somarGrupo,
+  type AdsDia, type AdsTermo, type SiteLead, type SiteEvento,
 } from '@/lib/site/metricas'
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   ads: AdsDia[]
   termos: AdsTermo[]
   leads: SiteLead[]
+  eventos: SiteEvento[]
   ultimoEnvio: string | null
   erro: string | null
 }
@@ -35,13 +36,20 @@ function Card({ titulo, valor, linha, ajuda, destaque }: { titulo: string; valor
   )
 }
 
-export default function SitePainel({ periodo, ads, termos, leads, ultimoEnvio, erro }: Props) {
+export default function SitePainel({ periodo, ads, termos, leads, eventos, ultimoEnvio, erro }: Props) {
   const noP = (d: string) => d >= periodo.de && d <= periodo.ate
   const noAnt = (d: string) => d >= periodo.antDe && d <= periodo.antAte
   const adsP = ads.filter((r) => noP(r.data))
   const adsA = ads.filter((r) => noAnt(r.data))
   const leadsP = leads.filter((l) => noP(dataLead(l)))
   const leadsA = leads.filter((l) => noAnt(dataLead(l)))
+  const eventosP = eventos.filter((e) => noP(dataLead(e)))
+  const eventosA = eventos.filter((e) => noAnt(dataLead(e)))
+  const canais = porCanal(leadsP, eventosP)
+  const pago = somarGrupo(canais, 'pago'), org = somarGrupo(canais, 'organico')
+  const canaisA = porCanal(leadsA, eventosA)
+  const pagoA = somarGrupo(canaisA, 'pago'), orgA = somarGrupo(canaisA, 'organico')
+  const totalContatos = pago.contatos + org.contatos
 
   const a = resumirAds(adsP), aa = resumirAds(adsA)
   const l = resumirLeads(leadsP), la = resumirLeads(leadsA)
@@ -89,6 +97,70 @@ export default function SitePainel({ periodo, ads, termos, leads, ultimoEnvio, e
           <Card titulo="Faturamento do site" valor={brl(l.faturamento)} linha={comp(l.faturamento, la.faturamento, brl)} ajuda={a.investimento ? `Retorno: ${num(retorno, 1)}× o investimento` : 'Soma das vendas marcadas'} destaque />
         </div>
         <p className="text-xs text-gray-400">Comparação com {dm(periodo.antDe)} a {dm(periodo.antAte)}. Quem clica direto no botão de WhatsApp conta como contato do anúncio, mas só os orçamentos preenchidos no site aparecem na lista abaixo.</p>
+      </section>
+
+
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">De onde vêm os contatos: anúncio x orgânico</h2>
+          <p className="text-xs text-gray-500">Contato = orçamento enviado pelo site ou clique no botão de WhatsApp (uma vez por visita). A origem é identificada pelo próprio site.</p>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-indigo-200 bg-white p-4 space-y-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-bold text-indigo-700">Pago (anúncios)</p>
+              <p className="text-xs text-gray-500">{totalContatos ? pct1(pago.contatos / totalContatos) : '0%'} dos contatos</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 tabular-nums">
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Contatos</p><p className="text-2xl font-bold text-gray-900">{num(pago.contatos)}</p><p className="text-xs text-gray-500">{num(pago.orcamentos)} orç. · {num(pago.whatsapp)} WhatsApp</p></div>
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Vendas</p><p className="text-2xl font-bold text-gray-900">{num(pago.vendas)}</p><p className="text-xs text-gray-500">{brl(pago.faturamento)}</p></div>
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Investido</p><p className="text-2xl font-bold text-gray-900">{brl(a.investimento)}</p></div>
+            </div>
+            <dl className="grid grid-cols-3 gap-2 border-t border-dashed border-gray-200 pt-3 text-sm tabular-nums">
+              <div><dt className="text-xs text-gray-500">Custo por contato</dt><dd className="font-semibold text-gray-900">{pago.contatos ? brl(a.investimento / pago.contatos) : '—'}</dd></div>
+              <div><dt className="text-xs text-gray-500">Custo por venda</dt><dd className="font-semibold text-gray-900">{pago.vendas ? brl(a.investimento / pago.vendas) : '—'}</dd></div>
+              <div><dt className="text-xs text-gray-500">Retorno</dt><dd className="font-semibold text-gray-900">{a.investimento && pago.faturamento ? num(pago.faturamento / a.investimento, 1) + '×' : '—'}</dd></div>
+            </dl>
+            {comp(pago.contatos, pagoA.contatos, (x) => num(x)) && <p className="text-xs text-gray-500">Contatos: {comp(pago.contatos, pagoA.contatos, (x) => num(x))!.texto}</p>}
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-white p-4 space-y-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-bold text-emerald-700">Orgânico (sem pagar anúncio)</p>
+              <p className="text-xs text-gray-500">{totalContatos ? pct1(org.contatos / totalContatos) : '0%'} dos contatos</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 tabular-nums">
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Contatos</p><p className="text-2xl font-bold text-gray-900">{num(org.contatos)}</p><p className="text-xs text-gray-500">{num(org.orcamentos)} orç. · {num(org.whatsapp)} WhatsApp</p></div>
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Vendas</p><p className="text-2xl font-bold text-gray-900">{num(org.vendas)}</p><p className="text-xs text-gray-500">{brl(org.faturamento)}</p></div>
+              <div><p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Investido</p><p className="text-2xl font-bold text-gray-900">{brl(0)}</p></div>
+            </div>
+            <p className="border-t border-dashed border-gray-200 pt-3 text-xs text-gray-500">É a base que chega sem anúncio: Google orgânico, Instagram, indicação, quem digita o endereço. O anúncio vale a pena quando traz contatos <b>além</b> desta base, a um custo por venda que caiba na margem.</p>
+            {comp(org.contatos, orgA.contatos, (x) => num(x)) && <p className="text-xs text-gray-500">Contatos: {comp(org.contatos, orgA.contatos, (x) => num(x))!.texto}</p>}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 overflow-x-auto">
+          {canais.length === 0 ? <p className="text-sm text-gray-500">Nenhum contato pelo site neste período.</p> : (
+            <table className="w-full text-sm tabular-nums">
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+                <th className="py-2 pr-3 font-semibold">Origem</th><th className="py-2 px-2 font-semibold">Tipo</th><th className="py-2 px-2 text-right font-semibold">Orçamentos</th><th className="py-2 px-2 text-right font-semibold">WhatsApp</th><th className="py-2 px-2 text-right font-semibold">Contatos</th><th className="py-2 px-2 text-right font-semibold">Vendas</th><th className="py-2 pl-2 text-right font-semibold">Faturamento</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-100">
+                {canais.map((c) => (
+                  <tr key={c.canal}>
+                    <td className="py-2 pr-3 font-medium text-gray-900">{c.rotulo}</td>
+                    <td className="py-2 px-2"><span className={clsx('rounded-full px-2 text-xs font-semibold', c.grupo === 'pago' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700')}>{c.grupo === 'pago' ? 'pago' : 'orgânico'}</span></td>
+                    <td className="py-2 px-2 text-right">{num(c.orcamentos)}</td>
+                    <td className="py-2 px-2 text-right">{num(c.whatsapp)}</td>
+                    <td className="py-2 px-2 text-right font-semibold">{num(c.contatos)}</td>
+                    <td className="py-2 px-2 text-right">{num(c.vendas)}</td>
+                    <td className="py-2 pl-2 text-right">{brl(c.faturamento)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <p className="text-xs text-gray-400">“Sem origem registrada” = contatos anteriores a 29/10/2026, quando a medição de origem começou (nessa época não havia anúncio rodando). Os “contatos pelo anúncio” do Google Ads, acima, podem diferir um pouco destes números: o Google conta pela regra dele (inclusive quem clicou no anúncio dias antes).</p>
       </section>
 
       <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-3">

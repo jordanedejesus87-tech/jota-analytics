@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import SitePainel from '@/components/site/SitePainel'
 import { hojeSP, resolverPeriodo, somarDias } from '@/lib/externo/metricas'
-import type { AdsDia, AdsTermo, SiteLead } from '@/lib/site/metricas'
+import type { AdsDia, AdsTermo, SiteEvento, SiteLead } from '@/lib/site/metricas'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,14 +22,16 @@ export default async function SitePage({ searchParams }: { searchParams: { p?: s
   // Leads são gravados com horário UTC; amplia um dia para cada lado e filtra no fuso de São Paulo depois.
   const ini = somarDias(periodo.antDe, -1), fim = somarDias(periodo.ate, 1)
 
-  const [ads, termos, leads, envio] = await Promise.all([
+  const [ads, termos, leads, envio, eventos] = await Promise.all([
     supabase.from('ads_diario').select('data, campanha_id, campanha, status, impressoes, cliques, custo, conversoes, conv_whatsapp, conv_orcamento')
       .eq('company_id', empresa).gte('data', periodo.antDe).lte('data', periodo.ate).limit(10000),
     supabase.from('ads_termos').select('data, campanha, termo, impressoes, cliques, custo, conversoes')
       .eq('company_id', empresa).gte('data', periodo.de).lte('data', periodo.ate).limit(10000),
-    supabase.from('site_leads').select('id, created_at, nome, cidade, empresa, produtos, segmento, quantidade, prazo, detalhes, origem, gclid, status, valor_venda')
+    supabase.from('site_leads').select('id, created_at, nome, cidade, empresa, produtos, segmento, quantidade, prazo, detalhes, origem, gclid, status, valor_venda, canal, utm_source, utm_campaign, referrer')
       .eq('company_id', empresa).gte('created_at', ini).lte('created_at', fim + 'T23:59:59').order('created_at', { ascending: false }).limit(5000),
     supabase.rpc('ads_ultimo_envio', { p_company: empresa }),
+    supabase.from('site_eventos').select('created_at, tipo, local, canal, utm_campaign')
+      .eq('company_id', empresa).gte('created_at', ini).lte('created_at', fim + 'T23:59:59').limit(20000),
   ])
 
   return (
@@ -38,6 +40,7 @@ export default async function SitePage({ searchParams }: { searchParams: { p?: s
       ads={(ads.data ?? []) as AdsDia[]}
       termos={(termos.data ?? []) as AdsTermo[]}
       leads={(leads.data ?? []) as SiteLead[]}
+      eventos={(eventos.data ?? []) as SiteEvento[]}
       ultimoEnvio={(envio.data as string | null) ?? null}
       erro={ads.error?.message || leads.error?.message || termos.error?.message || null}
     />
