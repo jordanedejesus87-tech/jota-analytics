@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
-import { Plus, X, Users, Calendar, AlertTriangle, ChevronRight, Target, CalendarDays, Pencil } from 'lucide-react'
+import { Plus, X, Users, Calendar, AlertTriangle, ChevronRight, Target, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ResultadosComercial from '@/components/comercial/ResultadosComercial'
+import OrigemVendas from '@/components/comercial/OrigemVendas'
+import { ModalVenda, ModalDia, type FormVenda } from '@/components/comercial/VendaModais'
+import type { VendaIndividual, LeadAberto } from '@/lib/comercial/origens'
 import type { DailySale, SalespersonTarget, TeamTarget, Role } from '@/lib/types'
 import {
   MESES, MESES_CURTO, brl, pct, num, dm, diaDaSemana, diasUteis, semanas, indicadores, porSemana,
@@ -50,9 +53,12 @@ interface Props {
   salespersonTargets: SalespersonTarget[]
   teamTargets: TeamTarget[]
   hoje: string
+  initialVendas: VendaIndividual[]
+  leadsAbertos: LeadAberto[]
+  custoAds: Record<string, number> | null
 }
 
-export default function CommercialDashboard({ initialSales, companyId, currentUserName, currentUserRole, salespersonTargets, teamTargets, hoje }: Props) {
+export default function CommercialDashboard({ initialSales, companyId, currentUserName, currentUserRole, salespersonTargets, teamTargets, hoje, initialVendas, leadsAbertos, custoAds }: Props) {
   const supabase = createClient()
   const gestor = currentUserRole === 'admin' || currentUserRole === 'system'
   const podeLancar = gestor || currentUserRole === 'commercial' || currentUserRole === 'externo'
@@ -64,7 +70,14 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
   const meses = useMemo(() => mesesDisponiveis(hoje), [hoje])
   const [sel, setSel] = useState(() => meses[meses.length - 1])
   const [pessoa, setPessoa] = useState<string>('geral')
-  const [aba, setAba] = useState<'mes' | 'resultados'>('mes')
+  const [aba, setAba] = useState<'mes' | 'resultados' | 'origem'>('mes')
+
+  // Vendas individuais (com origem)
+  const [vendasInd, setVendasInd] = useState<VendaIndividual[]>(initialVendas)
+  const [leads, setLeads] = useState<LeadAberto[]>(leadsAbertos)
+  const [formVenda, setFormVenda] = useState<FormVenda | null>(null)
+  const [okVenda, setOkVenda] = useState('')
+  const [dia, setDia] = useState<null | { data: string; vendedor: string | null }>(null)
 
   // Lançamento de vendas
   const [form, setForm] = useState<null | { data: string; vendedor: string; valor: string; qtd: string }>(null)
@@ -130,6 +143,100 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
     setForm(null)
   }
 
+  // ── Venda a venda ─────────────────────────────────────────────────────────
+  const quemPadrao = (vendedor?: string | null) => vendedor ?? (gestor ? (pessoa !== 'geral' ? pessoa : todosVendedores[0] ?? currentUserName) : currentUserName)
+
+  function abrirVenda(data = hoje, vendedor?: string | null) {
+    const quem = quemPadrao(vendedor)
+    setErro('')
+    setOkVenda('')
+    setFormVenda({ data, vendedor: quem, valor: '', origem: currentUserRole === 'externo' ? 'presencial' : '', cliente: '', pedido: '', obs: '', leadId: '' })
+  }
+
+  function editarVenda(v: VendaIndividual) {
+    setErro('')
+    setOkVenda('')
+    setFormVenda({ id: v.id, data: v.sale_date, vendedor: v.salesperson_name, valor: num(v.valor, 2), origem: v.origem, cliente: v.cliente ?? '', pedido: v.pedido ?? '', obs: v.observacao ?? '', leadId: v.site_lead_id ?? '' })
+  }
+
+  /** Relê o total do dia (mantido pelo banco a partir das vendas individuais). */
+  async function atualizarDia(vendedor: string, data: string) {
+    const { data: linha } = await supabase.from('daily_sales').select('*').eq('company_id', companyId).eq('salesperson_name', vendedor).eq('sale_date', data).maybeSingle()
+    setSales((prev) => {
+      const resto = prev.filter((s) => !(s.salesperson_name === vendedor && s.sale_date === data))
+      return linha ? [{ ...linha, total_amount: n(linha.total_amount), ticket_count: n(linha.ticket_count) }, ...resto] : resto
+    })
+  }
+
+  async function salvarVenda(continuar: boolean) {
+    if (!formVenda) return
+    const f = formVenda
+    const valor = lerValor(f.valor)
+    if (!Number.isFinite(valor) || valor <= 0) return setErro('Informe o valor da venda (ex.: 1.250,00).')
+    if (!f.origem) return setErro('Escolha de onde veio o cliente — é isso que mostra quais canais dão resultado.')
+    if (f.origem === 'outro' && !f.obs.trim()) return setErro('Em "Outro", escreva na observação qual foi a origem.')
+    if (f.data > hoje) return setErro('A data não pode ser no futuro.')
+    const lead = f.origem === 'site_google' && f.leadId ? leads.find((l) => l.id === f.leadId) : undefined
+    const anterior = f.id ? vendasInd.find((v) => v.id === f.id) : undefined
+    const payload = {
+      company_id: companyId,
+      salesperson_name: gestor ? f.vendedor : currentUserName,
+      sale_date: f.data,
+      valor,
+      origem: f.origem,
+      cliente: f.cliente.trim() || null,
+      pedido: f.pedido.trim() || null,
+      observacao: f.obs.trim() || null,
+      site_lead_id: f.origem === 'site_google' ? (f.leadId || null) : null,
+      canal_site: f.origem === 'site_google' ? (lead?.canal ?? (f.leadId && anterior?.site_lead_id === f.leadId ? anterior.canal_site : null)) : null,
+    }
+    setSalvando(true)
+    setErro('')
+    const r = f.id
+      ? await supabase.from('vendas').update(payload).eq('id', f.id).select().single()
+      : await supabase.from('vendas').insert(payload).select().single()
+    if (r.error || !r.data) {
+      setSalvando(false)
+      return setErro('Não foi possível salvar a venda. Tente novamente.')
+    }
+    const salva: VendaIndividual = { ...r.data, valor: n(r.data.valor) }
+    // Orçamento do site vinculado passa a "vendido" (aparece no painel Site e Google Ads)
+    if (lead) {
+      await supabase.from('site_leads').update({ status: 'vendido', valor_venda: valor }).eq('id', lead.id)
+      setLeads((prev) => prev.filter((l) => l.id !== lead.id))
+    }
+    setVendasInd((prev) => [salva, ...prev.filter((v) => v.id !== salva.id)])
+    await atualizarDia(salva.salesperson_name, salva.sale_date)
+    if (anterior && (anterior.salesperson_name !== salva.salesperson_name || anterior.sale_date !== salva.sale_date)) await atualizarDia(anterior.salesperson_name, anterior.sale_date)
+    setSalvando(false)
+    if (continuar) {
+      setOkVenda(`Venda de ${brl(valor)} registrada. Pode lançar a próxima.`)
+      setFormVenda({ ...f, id: undefined, valor: '', origem: currentUserRole === 'externo' ? 'presencial' : '', cliente: '', pedido: '', obs: '', leadId: '' })
+    } else {
+      setFormVenda(null)
+    }
+  }
+
+  async function excluirVenda(v: VendaIndividual) {
+    setSalvando(true)
+    setErro('')
+    const { error } = await supabase.from('vendas').delete().eq('id', v.id)
+    if (error) { setSalvando(false); return setErro('Não foi possível excluir. Tente novamente.') }
+    setVendasInd((prev) => prev.filter((x) => x.id !== v.id))
+    await atualizarDia(v.salesperson_name, v.sale_date)
+    setSalvando(false)
+  }
+
+  async function marcarSemVendas(vendedor: string, data: string) {
+    if (vendasInd.some((v) => v.salesperson_name === vendedor && v.sale_date === data)) return
+    setSalvando(true)
+    setErro('')
+    const { error } = await supabase.from('daily_sales').upsert({ company_id: companyId, salesperson_name: vendedor, sale_date: data, total_amount: 0, ticket_count: 0 }, { onConflict: 'company_id,salesperson_name,sale_date' })
+    if (error) setErro('Não foi possível salvar. Tente novamente.')
+    await atualizarDia(vendedor, data)
+    setSalvando(false)
+  }
+
   function abrirMetas() {
     setErro('')
     setEditMetas({
@@ -184,19 +291,21 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
             </button>
           )}
           {podeLancar && (
-            <button onClick={() => abrirLancamento()} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-              <Plus className="w-4 h-4" /> Registrar vendas do dia
+            <button onClick={() => abrirVenda()} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+              <Plus className="w-4 h-4" /> Registrar venda
             </button>
           )}
         </div>
       </div>
 
       {/* Visões */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-full sm:w-fit">
-        {([['mes', 'Acompanhamento do mês'], ['resultados', 'Resultados por período']] as const).map(([id, rotulo]) => (
-          <button key={id} onClick={() => setAba(id)} className={clsx('flex-1 sm:flex-none rounded-lg px-4 py-2 text-sm font-semibold', aba === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{rotulo}</button>
+      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-full sm:w-fit overflow-x-auto">
+        {([['mes', 'Acompanhamento do mês'], ['resultados', 'Resultados por período'], ['origem', 'Origem das vendas']] as const).map(([id, rotulo]) => (
+          <button key={id} onClick={() => setAba(id)} className={clsx('flex-1 sm:flex-none shrink-0 rounded-lg px-3 sm:px-4 py-2 text-sm font-semibold whitespace-nowrap', aba === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{rotulo}</button>
         ))}
       </div>
+
+      {aba === 'origem' && <OrigemVendas vendas={vendasInd} totais={sales} hoje={hoje} custoAds={custoAds} onAbrirDia={(d, v) => setDia({ data: d, vendedor: v })} />}
 
       {aba === 'resultados' && <ResultadosComercial vendas={sales} metasVend={metasVend} metasTime={metasTime} hoje={hoje} />}
 
@@ -316,7 +425,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
             <CalendarDays className="w-4 h-4 text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-700">Faturamento por dia · {nomeVisao}</h2>
           </div>
-          {pessoa !== 'geral' && podeEditarDe(pessoa) && <p className="text-xs text-gray-400">Toque no dia para lançar ou corrigir</p>}
+          <p className="text-xs text-gray-400">Toque no dia para ver as vendas{podeLancar ? ' e registrar' : ''}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap">
@@ -333,9 +442,9 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
             <tbody className="divide-y divide-gray-50">
               {linhasDia.map((l) => {
                 const futuro = l.d > hoje
-                const editavel = pessoa !== 'geral' && podeEditarDe(pessoa) && !futuro
+                const editavel = !futuro
                 return (
-                  <tr key={l.d} onClick={editavel ? () => abrirLancamento(l.d, pessoa) : undefined} className={clsx(futuro && 'opacity-40', editavel && 'cursor-pointer hover:bg-indigo-50/50', l.d === hoje && 'bg-indigo-50/40')}>
+                  <tr key={l.d} onClick={editavel ? () => { setErro(''); setDia({ data: l.d, vendedor: pessoa === 'geral' ? null : pessoa }) } : undefined} className={clsx(futuro && 'opacity-40', editavel && 'cursor-pointer hover:bg-indigo-50/50', l.d === hoje && 'bg-indigo-50/40')}>
                     <td className="px-4 py-2 text-gray-800"><span className="font-medium tabular-nums">{dm(l.d)}</span> <span className="text-xs text-gray-400">{diaDaSemana(l.d)}</span></td>
                     <td className="px-3 py-2 text-xs text-gray-500">Sem. {semanaDo.get(l.d)}</td>
                     {pessoa === 'geral' && vendedores.map((v) => {
@@ -346,7 +455,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
                     <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{l.lancado ? brl(l.total) : <span className="text-gray-300 font-normal">{futuro ? '—' : 'sem lançamento'}</span>}</td>
                     <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                       {l.qtd ? brl(l.total / l.qtd) : <span className="text-gray-300">—</span>}
-                      {editavel && <Pencil className="inline w-3 h-3 ml-2 text-gray-300" />}
+                      {editavel && <ChevronRight className="inline w-3 h-3 ml-2 text-gray-300" />}
                     </td>
                   </tr>
                 )
@@ -411,8 +520,8 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
           <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Vendas do dia</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Se o dia já tiver lançamento, ele é substituído</p>
+                <h2 className="text-lg font-bold text-gray-900">Corrigir total do dia</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Só para dias lançados pelo total (antes do registro venda a venda). O valor do dia é substituído.</p>
               </div>
               <button onClick={() => setForm(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
@@ -454,6 +563,51 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal: vendas do dia */}
+      {dia && !formVenda && !form && (
+        <ModalDia
+          data={dia.data}
+          vendedor={dia.vendedor}
+          vendas={vendasInd.filter((v) => v.sale_date === dia.data && (!dia.vendedor || v.salesperson_name === dia.vendedor)).sort((a, b) => a.created_at.localeCompare(b.created_at))}
+          totais={sales.filter((s) => s.sale_date === dia.data && (!dia.vendedor || s.salesperson_name === dia.vendedor))}
+          podeEditarDe={podeEditarDe}
+          podeLancar={podeLancar}
+          gestor={gestor}
+          onClose={() => setDia(null)}
+          onNova={() => abrirVenda(dia.data, dia.vendedor)}
+          onEditar={editarVenda}
+          onExcluir={excluirVenda}
+          onSemVendas={() => dia.vendedor && marcarSemVendas(dia.vendedor, dia.data)}
+          onCorrigirTotal={() => dia.vendedor && abrirLancamento(dia.data, dia.vendedor)}
+          ocupado={salvando}
+          erro={erro}
+        />
+      )}
+
+      {/* Modal: registrar venda */}
+      {formVenda && (
+        <ModalVenda
+          form={formVenda}
+          setForm={setFormVenda}
+          onClose={() => setFormVenda(null)}
+          onSalvar={salvarVenda}
+          salvando={salvando}
+          erro={erro}
+          ok={okVenda}
+          gestor={gestor}
+          vendedores={todosVendedores.length ? todosVendedores : [currentUserName]}
+          hoje={hoje}
+          leads={leads}
+          legado={(() => {
+            const quem = gestor ? formVenda.vendedor : currentUserName
+            if (vendasInd.some((v) => v.salesperson_name === quem && v.sale_date === formVenda.data)) return null
+            const t = sales.find((s) => s.salesperson_name === quem && s.sale_date === formVenda.data)
+            return t && t.ticket_count > 0 ? t : null
+          })()}
+          currentUserName={currentUserName}
+        />
       )}
 
       {/* Modal: metas */}
