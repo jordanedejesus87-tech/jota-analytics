@@ -14,6 +14,7 @@ import {
   KeyRound,
   Globe,
   Inbox,
+  Megaphone,
   X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -59,6 +60,12 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       label: 'Vendedor externo',
       icon: MapPinned,
       roles: ['admin', 'system', 'client', 'externo'],
+    },
+    {
+      href: '/dashboard/marketing',
+      label: 'Marketing',
+      icon: Megaphone,
+      roles: ['admin', 'system', 'client'],
     },
     {
       href: '/dashboard/site',
