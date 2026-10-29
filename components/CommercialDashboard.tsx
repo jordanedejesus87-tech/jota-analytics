@@ -150,7 +150,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
     const quem = quemPadrao(vendedor)
     setErro('')
     setOkVenda('')
-    setFormVenda({ data, vendedor: quem, valor: '', origem: currentUserRole === 'externo' ? 'presencial' : '', cliente: '', pedido: '', obs: '', leadId: '' })
+    setFormVenda({ data, vendedor: quem, valor: '', origem: currentUserRole === 'externo' ? 'externo' : '', cliente: '', pedido: '', obs: '', leadId: '' })
   }
 
   function editarVenda(v: VendaIndividual) {
@@ -174,7 +174,6 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
     const valor = lerValor(f.valor)
     if (!Number.isFinite(valor) || valor <= 0) return setErro('Informe o valor da venda (ex.: 1.250,00).')
     if (!f.origem) return setErro('Escolha de onde veio o cliente — é isso que mostra quais canais dão resultado.')
-    if (f.origem === 'outro' && !f.obs.trim()) return setErro('Em "Outro", escreva na observação qual foi a origem.')
     if (f.data > hoje) return setErro('A data não pode ser no futuro.')
     const lead = f.origem === 'site_google' && f.leadId ? leads.find((l) => l.id === f.leadId) : undefined
     const anterior = f.id ? vendasInd.find((v) => v.id === f.id) : undefined
@@ -211,7 +210,7 @@ export default function CommercialDashboard({ initialSales, companyId, currentUs
     setSalvando(false)
     if (continuar) {
       setOkVenda(`Venda de ${brl(valor)} registrada. Pode lançar a próxima.`)
-      setFormVenda({ ...f, id: undefined, valor: '', origem: currentUserRole === 'externo' ? 'presencial' : '', cliente: '', pedido: '', obs: '', leadId: '' })
+      setFormVenda({ ...f, id: undefined, valor: '', origem: currentUserRole === 'externo' ? 'externo' : '', cliente: '', pedido: '', obs: '', leadId: '' })
     } else {
       setFormVenda(null)
     }

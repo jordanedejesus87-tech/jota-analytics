@@ -13,8 +13,8 @@ create table if not exists public.vendas (
   sale_date        date not null,
   valor            numeric(12,2) not null check (valor > 0),
   origem           text not null check (origem in (
-                     'reativacao', 'recompra', 'site_google', 'instagram', 'facebook',
-                     'indicacao', 'presencial', 'outro')),
+                     'site_google', 'instagram_organico', 'facebook_organico', 'instagram_anuncio',
+                     'facebook_anuncio', 'tiktok', 'reativacao', 'recompra', 'indicacao', 'externo')),
   cliente          text,
   pedido           text,
   observacao       text,

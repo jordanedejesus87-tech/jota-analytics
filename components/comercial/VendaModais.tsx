@@ -118,7 +118,7 @@ export function ModalVenda({
           </label>
         </div>
         <label className="block">
-          <span className="block text-xs font-semibold text-gray-600 mb-1">Observação {form.origem === 'outro' ? '(diga qual foi a origem)' : '(opcional)'}</span>
+          <span className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</span>
           <input type="text" value={form.obs} onChange={(e) => setForm({ ...form, obs: e.target.value })} className={campo} />
         </label>
 

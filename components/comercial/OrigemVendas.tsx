@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { Info, Megaphone } from 'lucide-react'
 import { brl, pct, num, dm, type Venda } from '@/lib/comercial/metricas'
-import { ORIGENS, infoOrigem, CANAL_ROTULO, type VendaIndividual } from '@/lib/comercial/origens'
+import { ORIGENS, ORIGENS_DIGITAIS, ORIGENS_ANUNCIO, infoOrigem, CANAL_ROTULO, type VendaIndividual } from '@/lib/comercial/origens'
 
 // Origem das vendas: de onde vem o faturamento, venda a venda.
 // Base: tabela public.vendas (registro individual, desde 29/10/2026).
@@ -126,7 +126,7 @@ export default function OrigemVendas({ vendas, totais, hoje, custoAds, onAbrirDi
           <Tile titulo="Faturamento com origem" valor={brl(fat)} linha={`${num(qtd)} venda(s) registradas`} />
           <Tile titulo="Ticket médio" valor={brl(fat / qtd)} linha="Faturamento ÷ nº de vendas" />
           <Tile titulo="Origem que mais fatura" valor={lider?.rotulo ?? '—'} linha={lider ? `${brl(lider.fat)} · ${pct(lider.part * 100, 0)} do total` : undefined} />
-          <Tile titulo="Canais digitais" valor={pct(porOrigem.filter((o) => ['site_google', 'instagram', 'facebook'].includes(o.id)).reduce((s, o) => s + o.part, 0) * 100, 0)} linha="Site/Google + Instagram + Facebook" />
+          <Tile titulo="Internet e redes" valor={pct(porOrigem.filter((o) => ORIGENS_DIGITAIS.includes(o.id)).reduce((s, o) => s + o.part, 0) * 100, 0)} linha={`Anúncios Meta: ${brl(porOrigem.filter((o) => ORIGENS_ANUNCIO.includes(o.id)).reduce((s, o) => s + o.fat, 0))}`} />
         </div>
 
         {/* Por origem */}
@@ -172,7 +172,7 @@ export default function OrigemVendas({ vendas, totais, hoje, custoAds, onAbrirDi
               </div>
               <p className="text-xs text-gray-500">
                 “Confirmadas” = vendas ligadas a um orçamento do site que chegou por anúncio. Vendas Site/Google sem orçamento vinculado (ex.: cliente que chamou direto no WhatsApp) entram só no retorno máximo.
-                Para medir melhor, vincule o orçamento sempre que o cliente tiver vindo pelo formulário do site. Instagram e Facebook ganham o mesmo quadro quando o Meta Ads for conectado.
+                Para medir melhor, vincule o orçamento sempre que o cliente tiver vindo pelo formulário do site. As vendas de Instagram (anúncio) e Facebook (anúncio) ganham o mesmo quadro quando o Meta Ads for conectado.
               </p>
             </div>
           </Painel>
