@@ -101,3 +101,6 @@ grant execute on function public.ads_ultimo_envio(uuid) to authenticated;
 -- orcado_em, valor_orcamento, fechado_em, motivo_perda, retorno_em, observacoes. Trigger site_leads_atualizar grava
 -- respondido_em na 1ª mudança de "novo" e registra cada troca de etapa em lead_historico.
 -- lead_responsaveis = quem recebe a janela de alerta (inicialmente a Bruna).
+-- ATENÇÃO (29/10/2026): lead_responsaveis NÃO pode ter FK para companies. Com PK (company_id, user_id) + FKs para
+-- companies e profiles ela vira "tabela de junção" para o PostgREST, o select profiles + company:companies(*) fica
+-- ambíguo e o login entra em loop de redirecionamento. FK removido na migração corrige_ambiguidade_profiles_companies.
