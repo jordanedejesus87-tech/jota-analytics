@@ -28,7 +28,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <SidebarWrapper profile={profile} />
-      {recebeLeads && <AlertaLeads companyId={profile.company_id} />}
+      {recebeLeads && <AlertaLeads companyId={profile.company_id} verTempos={['admin', 'system', 'client'].includes(profile.role)} />}
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>

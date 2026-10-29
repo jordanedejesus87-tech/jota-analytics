@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import LeadsCRM from '@/components/leads/LeadsCRM'
 import { hojeSP, resolverPeriodo, somarDias } from '@/lib/externo/metricas'
-import { CAMPOS_LEAD, type LeadCRM } from '@/lib/leads/crm'
+import { CAMPOS_LEAD, PAPEIS_VEEM_TEMPO, type LeadCRM } from '@/lib/leads/crm'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +36,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { p?: 
       hoje={hoje}
       equipe={equipe.data ?? []}
       podeEditar={profile.role !== 'client'}
+      verTempos={PAPEIS_VEEM_TEMPO.includes(profile.role)}
       destaque={searchParams.lead}
       erro={abertos.error?.message || doPeriodo.error?.message || null}
     />

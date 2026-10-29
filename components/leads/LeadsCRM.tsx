@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
 import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
 import LeadCard from '@/components/leads/LeadCard'
-import { metricas, fmtMin, tempoResposta, META_RESPOSTA_MIN, dataSP, type LeadCRM } from '@/lib/leads/crm'
+import { metricas, fmtMin, tempoResposta, META_RESPOSTA_MIN, LIMITE_AMARELO_MIN, faixaTempo, COR_FAIXA, dataSP, type LeadCRM } from '@/lib/leads/crm'
 import type { Periodo } from '@/lib/externo/metricas'
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   hoje: string
   equipe: { id: string; name: string }[]
   podeEditar: boolean
+  /** Tempo de resposta, médias e ranking: só gestão (admin e login da empresa). O comercial não vê. */
+  verTempos: boolean
   destaque?: string
   erro: string | null
 }
@@ -22,11 +24,11 @@ interface Props {
 const pct = (v: number) => Math.round(v * 100) + '%'
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-function Card({ titulo, valor, linha, tom }: { titulo: string; valor: string; linha?: string; tom?: 'bom' | 'ruim' }) {
+function Card({ titulo, valor, linha, tom }: { titulo: string; valor: string; linha?: string; tom?: 'bom' | 'medio' | 'ruim' }) {
   return (
-    <div className={clsx('rounded-xl border bg-white p-3 sm:p-4 min-w-0', tom === 'ruim' ? 'border-red-200' : 'border-gray-200')}>
+    <div className={clsx('rounded-xl border bg-white p-3 sm:p-4 min-w-0', tom === 'ruim' ? 'border-red-200' : tom === 'medio' ? 'border-amber-200' : 'border-gray-200')}>
       <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{titulo}</p>
-      <p className={clsx('text-xl sm:text-2xl font-bold leading-tight tabular-nums', tom === 'bom' ? 'text-emerald-700' : tom === 'ruim' ? 'text-red-700' : 'text-gray-900')}>{valor}</p>
+      <p className={clsx('text-xl sm:text-2xl font-bold leading-tight tabular-nums', tom === 'bom' ? 'text-emerald-700' : tom === 'medio' ? 'text-amber-600' : tom === 'ruim' ? 'text-red-700' : 'text-gray-900')}>{valor}</p>
       {linha && <p className="text-xs text-gray-500 mt-1">{linha}</p>}
     </div>
   )
@@ -34,7 +36,9 @@ function Card({ titulo, valor, linha, tom }: { titulo: string; valor: string; li
 
 type Aba = 'novo' | 'em_atendimento' | 'orcado' | 'retornos' | 'fechados'
 
-export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, podeEditar, destaque, erro }: Props) {
+const TOM: Record<'verde' | 'amarelo' | 'vermelho', 'bom' | 'medio' | 'ruim'> = { verde: 'bom', amarelo: 'medio', vermelho: 'ruim' }
+
+export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, podeEditar, verTempos, destaque, erro }: Props) {
   const router = useRouter()
   const [, setTick] = useState(0)
   // atualiza o relógio de "aguardando há" e busca leads novos a cada 30 s
@@ -77,7 +81,7 @@ export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, po
 
       {maisAntigo && (
         <button type="button" onClick={() => setAba('novo')} className="w-full text-left rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <b>{listas.novo.length} lead(s) aguardando resposta.</b> O mais antigo ({maisAntigo.nome}) espera há {fmtMin(tempoResposta(maisAntigo))} de expediente.
+          <b>{listas.novo.length} lead(s) aguardando resposta.</b>{verTempos ? ` O mais antigo (${maisAntigo.nome}) espera há ${fmtMin(tempoResposta(maisAntigo))} de expediente.` : ` O mais antigo é ${maisAntigo.nome}.`}
         </button>
       )}
 
@@ -85,17 +89,17 @@ export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, po
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
         <Card titulo="Leads recebidos" valor={String(m.recebidos)} linha={`${m.aguardando} aguardando resposta`} />
-        <Card titulo="Tempo de 1ª resposta" valor={fmtMin(m.mediaResposta)} linha={m.medianaResposta !== null ? `Metade respondida em até ${fmtMin(m.medianaResposta)}` : 'Média no expediente'} tom={m.mediaResposta === null ? undefined : m.mediaResposta <= META_RESPOSTA_MIN ? 'bom' : 'ruim'} />
-        <Card titulo={`Respondidos em ${META_RESPOSTA_MIN} min`} valor={m.respondidos ? pct(m.pctAte15) : '—'} linha={`${m.emAte15} de ${m.respondidos} respondidos`} tom={!m.respondidos ? undefined : m.pctAte15 >= 0.8 ? 'bom' : 'ruim'} />
+        {verTempos && <Card titulo="Tempo de 1ª resposta" valor={fmtMin(m.mediaResposta)} linha={m.medianaResposta !== null ? `Metade respondida em até ${fmtMin(m.medianaResposta)}` : 'Média no expediente'} tom={m.mediaResposta === null ? undefined : TOM[faixaTempo(m.mediaResposta)]} />}
+        {verTempos && <Card titulo={`Respondidos em ${META_RESPOSTA_MIN} min`} valor={m.respondidos ? pct(m.pctAte15) : '—'} linha={`${m.emAte15} de ${m.respondidos} respondidos`} tom={!m.respondidos ? undefined : m.pctAte15 >= 0.8 ? 'bom' : 'ruim'} />}
         <Card titulo="Orçamentos enviados" valor={String(m.orcados)} linha={`${pct(m.taxaOrcamento)} dos leads${m.valorOrcado ? ` · ${brl(m.valorOrcado)}` : ''}`} />
         <Card titulo="Vendas fechadas" valor={String(m.vendidos)} linha={`${pct(m.taxaVenda)} dos leads`} tom={m.vendidos ? 'bom' : undefined} />
         <Card titulo="Faturamento" valor={brl(m.faturamento)} linha={`${m.perdidos} não fecharam`} />
       </div>
-      <p className="text-xs text-gray-400">O tempo conta só o horário de atendimento (seg a sex, 8h–12h e 13h30–18h, sem feriados). Lead que chega à noite começa a contar às 8h do próximo dia útil.</p>
+      {verTempos && <p className="text-xs text-gray-400">O tempo conta só o horário de atendimento (seg a sex, 8h–12h e 13h30–18h, sem sábado e feriados, inclusive Carnaval, Corpus Christi, 20/09, 15/08 e 25/10). Lead que chega a partir das 17h30 ou à noite começa a contar às 8h do próximo dia útil. Verde até {META_RESPOSTA_MIN} min, amarelo até {LIMITE_AMARELO_MIN / 60} h, vermelho acima.</p>}
 
-      {(porPessoa.size > 0 || m.motivos.length > 0) && (
+      {((verTempos && porPessoa.size > 0) || m.motivos.length > 0) && (
         <div className="grid lg:grid-cols-2 gap-4">
-          <section className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+          {verTempos && <section className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
             <h3 className="font-semibold text-gray-900">Tempo de resposta por pessoa</h3>
             {porPessoa.size === 0 ? <p className="text-sm text-gray-500">Nenhum lead respondido no período.</p> : (
               <table className="w-full text-sm tabular-nums">
@@ -108,7 +112,7 @@ export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, po
                       <tr key={id}>
                         <td className="py-1.5 text-gray-900">{nomes.get(id) ?? 'Não identificado'}</td>
                         <td className="py-1.5 text-right">{ts.length}</td>
-                        <td className={clsx('py-1.5 text-right font-semibold', media <= META_RESPOSTA_MIN ? 'text-emerald-700' : 'text-red-600')}>{fmtMin(media)}</td>
+                        <td className={clsx('py-1.5 text-right font-semibold', COR_FAIXA[faixaTempo(media)])}>{fmtMin(media)}</td>
                         <td className="py-1.5 text-right">{pct(ok)}</td>
                       </tr>
                     )
@@ -116,7 +120,7 @@ export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, po
                 </tbody>
               </table>
             )}
-          </section>
+          </section>}
           <section className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
             <h3 className="font-semibold text-gray-900">Por que não fechou</h3>
             {m.motivos.length === 0 ? <p className="text-sm text-gray-500">Nenhum lead perdido no período.</p> : (
@@ -150,7 +154,7 @@ export default function LeadsCRM({ abertos, doPeriodo, periodo, hoje, equipe, po
       ) : (
         <ul className="space-y-3">
           {listas[aba].map((l) => (
-            <LeadCard key={l.id} lead={l} hoje={hoje} podeEditar={podeEditar} destaque={l.id === destaque} nomeResponsavel={l.respondido_por ? nomes.get(l.respondido_por) : undefined} />
+            <LeadCard key={l.id} lead={l} hoje={hoje} podeEditar={podeEditar} verTempos={verTempos} destaque={l.id === destaque} nomeResponsavel={l.respondido_por ? nomes.get(l.respondido_por) : undefined} />
           ))}
         </ul>
       )}

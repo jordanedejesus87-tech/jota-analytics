@@ -55,17 +55,59 @@ export const MOTIVOS = [
 
 export const META_RESPOSTA_MIN = 15
 
-// ── Tempo útil (expediente da LAESC: seg a sex, 8h–12h e 13h30–18h, horário de Brasília, sem feriados nacionais) ──
+// ── Tempo útil (expediente da LAESC: seg a sex, 8h–12h e 13h30–18h, horário de Brasília) ──
 const JANELAS: [number, number][] = [[8 * 60, 12 * 60], [13 * 60 + 30, 18 * 60]]
-// Feriados nacionais (não contam no tempo de resposta). Fixos todo ano + Sexta-feira Santa.
-const FERIADOS_FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25']
-const FERIADOS_MOVEIS = ['2026-04-03', '2027-03-26', '2028-04-14']
-const ehFeriado = (d: Date) => { const iso = d.toISOString().slice(0, 10); return FERIADOS_FIXOS.includes(iso.slice(5)) || FERIADOS_MOVEIS.includes(iso) }
+/** Lead que chega a partir deste horário só começa a contar às 8h do próximo dia útil. */
+const CORTE_FIM_DIA = 17 * 60 + 30
+
+/** Faixas do tempo de resposta: verde até 15 min, amarelo até 1 h, vermelho acima. */
+export const LIMITE_AMARELO_MIN = 60
+export type Faixa = 'verde' | 'amarelo' | 'vermelho'
+export const faixaTempo = (min: number): Faixa => (min <= META_RESPOSTA_MIN ? 'verde' : min <= LIMITE_AMARELO_MIN ? 'amarelo' : 'vermelho')
+export const COR_FAIXA: Record<Faixa, string> = { verde: 'text-emerald-600', amarelo: 'text-amber-600', vermelho: 'text-red-600' }
+
+/** Papéis que enxergam tempo de resposta, médias e ranking. O comercial (quem atende) não vê. */
+export const PAPEIS_VEEM_TEMPO = ['admin', 'system', 'client']
+
+// ── Dias sem expediente (não contam no tempo de resposta). Para incluir/retirar um feriado, edite as listas abaixo. ──
+// Fixos todo ano (MM-DD): nacionais + 20/09 Revolução Farroupilha (RS) + municipais de Caçapava do Sul (15/08 e 25/10)
+const FERIADOS_FIXOS = [
+  '01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25', // nacionais
+  '09-20', // RS
+  '08-15', '10-25', // Caçapava do Sul
+]
+// Datas avulsas (AAAA-MM-DD), ex.: ponte ou fechamento extra
+const FERIADOS_EXTRAS: string[] = []
+
+/** Páscoa (algoritmo de Meeus/Jones/Butcher), em UTC. */
+function pascoa(ano: number) {
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1
+  return Date.UTC(ano, mes - 1, dia)
+}
+const moveisCache = new Map<number, string[]>()
+/** Segunda e terça de Carnaval, Sexta-feira Santa e Corpus Christi do ano. */
+function feriadosMoveis(ano: number) {
+  if (!moveisCache.has(ano)) {
+    const p = pascoa(ano), d = (n: number) => new Date(p + n * 864e5).toISOString().slice(0, 10)
+    moveisCache.set(ano, [d(-48), d(-47), d(-2), d(60)])
+  }
+  return moveisCache.get(ano)!
+}
+export const ehFeriado = (d: Date) => {
+  const iso = d.toISOString().slice(0, 10)
+  return FERIADOS_FIXOS.includes(iso.slice(5)) || FERIADOS_EXTRAS.includes(iso) || feriadosMoveis(d.getUTCFullYear()).includes(iso)
+}
 const SP = (iso: string | Date) => new Date(new Date(iso).getTime() - 3 * 3600e3) // relógio de São Paulo em campos UTC
 
-/** Minutos de expediente entre dois instantes. Lead que chega à noite começa a contar às 8h do próximo dia útil. */
+/** Minutos de expediente entre dois instantes. Lead que chega à noite, ou a partir das 17h30, começa a contar às 8h do próximo dia útil. */
 export function minutosUteis(inicio: string | Date, fim: string | Date): number {
-  const a = SP(inicio), b = SP(fim)
+  let a = SP(inicio)
+  const b = SP(fim)
+  if (a.getUTCHours() * 60 + a.getUTCMinutes() >= CORTE_FIM_DIA)
+    a = new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate() + 1))
   if (b <= a) return 0
   let total = 0
   const dia = new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate()))

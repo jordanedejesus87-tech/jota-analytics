@@ -11,7 +11,7 @@ interface LeadNovo { id: string; nome: string; cidade: string; produtos: string 
 const ADIAR_MS = 2 * 60e3 // "Abrir lead" esconde a janela por 2 minutos; se continuar sem resposta, ela volta
 
 /** Janela de alerta + som + notificação do navegador para quem recebe os leads do site (ex.: Bruna). */
-export default function AlertaLeads({ companyId }: { companyId: string }) {
+export default function AlertaLeads({ companyId, verTempos }: { companyId: string; verTempos: boolean }) {
   const router = useRouter()
   const path = usePathname()
   const supabase = useRef(createClient()).current
@@ -131,7 +131,7 @@ export default function AlertaLeads({ companyId }: { companyId: string }) {
             <div className="px-5 py-4 space-y-2">
               <p className="text-lg font-semibold text-gray-900">{l.nome} <span className="text-sm font-normal text-gray-500">· {l.cidade}</span></p>
               <p className="text-sm text-gray-700">{[l.produtos, l.quantidade, l.prazo].filter(Boolean).join(' · ')}</p>
-              <p className="text-sm tabular-nums text-gray-500">Chegou {quando(l.created_at)} · aguardando há <b className="text-red-600">{fmtMin(tempoResposta(l))}</b> de expediente</p>
+              <p className="text-sm tabular-nums text-gray-500">Chegou {quando(l.created_at)}{verTempos && <> · aguardando há <b className="text-red-600">{fmtMin(tempoResposta(l))}</b> de expediente</>}</p>
             </div>
             <div className="grid gap-2 px-5 pb-5">
               {wa && <a href={wa} target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"><MessageCircle className="w-5 h-5" /> Chamar {l.telefone} no WhatsApp</a>}

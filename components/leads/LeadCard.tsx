@@ -6,7 +6,7 @@ import { clsx } from 'clsx'
 import { MessageCircle, Check, FileText, Trophy, XCircle, CalendarClock, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  etapa, MOTIVOS, META_RESPOSTA_MIN, tempoResposta, fmtMin, quando, origemLead, linkWhats, type LeadCRM, type Etapa,
+  etapa, MOTIVOS, tempoResposta, fmtMin, faixaTempo, COR_FAIXA, quando, origemLead, linkWhats, type LeadCRM, type Etapa,
 } from '@/lib/leads/crm'
 
 const campo = 'rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
@@ -16,7 +16,7 @@ const brl = (v: number | null | undefined) => Number(v || 0).toLocaleString('pt-
 
 type Acao = null | 'orcamento' | 'venda' | 'perdido' | 'retorno'
 
-export default function LeadCard({ lead, nomeResponsavel, podeEditar, destaque, hoje }: { lead: LeadCRM; nomeResponsavel?: string; podeEditar: boolean; destaque?: boolean; hoje: string }) {
+export default function LeadCard({ lead, nomeResponsavel, podeEditar, verTempos, destaque, hoje }: { lead: LeadCRM; nomeResponsavel?: string; podeEditar: boolean; verTempos: boolean; destaque?: boolean; hoje: string }) {
   const router = useRouter()
   const [acao, setAcao] = useState<Acao>(null)
   const [valor, setValor] = useState('')
@@ -31,7 +31,7 @@ export default function LeadCard({ lead, nomeResponsavel, podeEditar, destaque, 
   const wa = linkWhats(lead.telefone)
   const minutos = tempoResposta(lead)
   const aguardando = lead.status === 'novo'
-  const atrasado = minutos > META_RESPOSTA_MIN
+  const cor = COR_FAIXA[faixaTempo(minutos)]
   const retornoVencido = lead.retorno_em && lead.retorno_em <= hoje && ['em_atendimento', 'orcado'].includes(lead.status)
 
   async function salvar(campos: Partial<LeadCRM> & { status?: Etapa }) {
@@ -74,9 +74,10 @@ export default function LeadCard({ lead, nomeResponsavel, podeEditar, destaque, 
         </div>
         <div className="text-right text-xs tabular-nums shrink-0">
           <p className="text-gray-500">Chegou {quando(lead.created_at)}</p>
-          {aguardando
-            ? <p className={clsx('font-bold', atrasado ? 'text-red-600' : 'text-amber-600')}>Aguardando há {fmtMin(minutos)}</p>
-            : lead.respondido_em && <p className={clsx('font-semibold', atrasado ? 'text-red-600' : 'text-emerald-600')}>Respondido em {fmtMin(minutos)}{nomeResponsavel ? ` · ${nomeResponsavel}` : ''}</p>}
+          {verTempos && (aguardando
+            ? <p className={clsx('font-bold', cor)}>Aguardando há {fmtMin(minutos)}</p>
+            : lead.respondido_em && <p className={clsx('font-semibold', cor)}>Respondido em {fmtMin(minutos)}{nomeResponsavel ? ` · ${nomeResponsavel}` : ''}</p>)}
+          {!verTempos && aguardando && <p className="font-bold text-red-600">Aguardando resposta</p>}
           {lead.valor_orcamento ? <p className="text-gray-600">Orçado: {brl(lead.valor_orcamento)}</p> : null}
           {lead.status === 'vendido' && <p className="font-semibold text-emerald-700">Vendido: {brl(lead.valor_venda)}</p>}
           {lead.status === 'perdido' && lead.motivo_perda && <p className="text-gray-600">Motivo: {lead.motivo_perda}</p>}
