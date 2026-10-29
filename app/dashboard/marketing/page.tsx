@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MarketingPainel, { type Aba } from '@/components/marketing/MarketingPainel'
+import SitePainel from '@/components/site/SitePainel'
 import { hojeSP, resolverPeriodo, somarDias } from '@/lib/externo/metricas'
-import type { AdsDia, SiteLead } from '@/lib/site/metricas'
+import type { AdsDia, AdsTermo, SiteEvento, SiteLead } from '@/lib/site/metricas'
 import type { VendaIndividual } from '@/lib/comercial/origens'
 import type { MidiaConta, MidiaDia } from '@/lib/marketing/metricas'
 
@@ -38,6 +39,17 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
     supabase.rpc('ads_ultimo_envio', { p_company: empresa }),
   ])
 
+  // Aba "Site e Google Ads": termos pesquisados e cliques no WhatsApp do site (só carrega quando abre a aba)
+  const [termos, eventos] = aba === 'google'
+    ? await Promise.all([
+      supabase.from('ads_termos').select('data, campanha, termo, impressoes, cliques, custo, conversoes')
+        .eq('company_id', empresa).gte('data', periodo.de).lte('data', periodo.ate).limit(10000),
+      supabase.from('site_eventos').select('created_at, tipo, local, canal, utm_campaign')
+        .eq('company_id', empresa).gte('created_at', ini).lte('created_at', fim + 'T23:59:59').limit(20000),
+    ])
+    : [null, null]
+  const leadsOrdenados = ((leads.data ?? []) as SiteLead[]).slice().sort((a, b) => b.created_at.localeCompare(a.created_at))
+
   return (
     <MarketingPainel
       aba={aba}
@@ -51,6 +63,18 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
       podeAtualizar={['admin', 'system', 'client'].includes(profile.role)}
       ehAdmin={['admin', 'system'].includes(profile.role)}
       erro={midia.error?.message || ads.error?.message || vendas.error?.message || null}
+      site={aba === 'google' ? (
+        <SitePainel
+          embutido
+          periodo={periodo}
+          ads={(ads.data ?? []) as AdsDia[]}
+          termos={(termos?.data ?? []) as AdsTermo[]}
+          leads={leadsOrdenados}
+          eventos={(eventos?.data ?? []) as SiteEvento[]}
+          ultimoEnvio={(envioGoogle.data as string | null) ?? null}
+          erro={leads.error?.message || termos?.error?.message || eventos?.error?.message || null}
+        />
+      ) : null}
     />
   )
 }

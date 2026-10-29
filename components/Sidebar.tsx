@@ -12,7 +12,6 @@ import {
   BarChart2,
   MapPinned,
   KeyRound,
-  Globe,
   Inbox,
   Megaphone,
   X,
@@ -65,12 +64,6 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       href: '/dashboard/marketing',
       label: 'Marketing',
       icon: Megaphone,
-      roles: ['admin', 'system', 'client'],
-    },
-    {
-      href: '/dashboard/site',
-      label: 'Site e Google Ads',
-      icon: Globe,
       roles: ['admin', 'system', 'client'],
     },
     {

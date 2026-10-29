@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { clsx } from 'clsx'
-import { ArrowRight, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import FiltroPeriodo from '@/components/externo/FiltroPeriodo'
 import GraficoMarketing from '@/components/marketing/GraficoMarketing'
 import BotaoAtualizar from '@/components/marketing/BotaoAtualizar'
 import { brl, num, dm, type Periodo } from '@/lib/externo/metricas'
-import { resumirAds, porCampanha, dataLead, type AdsDia, type SiteLead } from '@/lib/site/metricas'
+import { resumirAds, dataLead, type AdsDia, type SiteLead } from '@/lib/site/metricas'
 import type { VendaIndividual } from '@/lib/comercial/origens'
 import {
   resumirMidia, porCampanhaMidia, porAnuncioMidia, porPosicionamento, canaisAquisicao, funilMeta, funilGoogle, funilTiktok,
@@ -27,6 +27,8 @@ interface Props {
   podeAtualizar: boolean
   ehAdmin: boolean
   erro: string | null
+  /** Painel do site e Google Ads (antigo menu próprio), mostrado na aba Site e Google Ads */
+  site?: React.ReactNode
 }
 
 const INICIO_VENDAS = '2026-10-29'
@@ -124,7 +126,7 @@ export default function MarketingPainel(p: Props) {
 
   const m = resumirMidia(metaP), ma = resumirMidia(metaA)
   const t = resumirMidia(tikP), ta = resumirMidia(tikA)
-  const g = resumirAds(adsP), ga = resumirAds(adsA)
+  const g = resumirAds(adsP)
 
   const fMeta = funilMeta(m, leadsP, vendP), fMetaA = funilMeta(ma, leadsA, vendA)
   const fGoogle = funilGoogle(adsP, leadsP, vendP), fGoogleA = funilGoogle(adsA, leadsA, vendA)
@@ -146,7 +148,7 @@ export default function MarketingPainel(p: Props) {
   const ABAS: { id: Aba; rotulo: string; ponto: string }[] = [
     { id: 'geral', rotulo: 'Visão geral', ponto: 'bg-emerald-500' },
     { id: 'meta', rotulo: 'Meta Ads', ponto: 'bg-violet-600' },
-    { id: 'google', rotulo: 'Google Ads', ponto: 'bg-sky-500' },
+    { id: 'google', rotulo: 'Site e Google Ads', ponto: 'bg-sky-500' },
     { id: 'tiktok', rotulo: 'TikTok Ads', ponto: 'bg-slate-800' },
   ]
   const vendasAntesDoRegistro = periodo.de < INICIO_VENDAS
@@ -397,35 +399,12 @@ export default function MarketingPainel(p: Props) {
         </Secao>
       </>)}
 
-      {/* ═════════════════════════ GOOGLE ADS ═════════════════════════ */}
+      {/* ═════════════════════════ SITE E GOOGLE ADS ═════════════════════════ */}
       {aba === 'google' && (<>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          <Card titulo="Investimento" valor={brl(g.investimento)} linha={comp(g.investimento, ga.investimento, brl)} ajuda={`${num(g.impressoes)} impressões`} />
-          <Card titulo="Cliques" valor={num(g.cliques)} linha={comp(g.cliques, ga.cliques, (x) => num(x))} ajuda={`Taxa de clique ${pct1(g.ctr)} · ${ou(g.cliques, brl(g.cpc))} por clique`} />
-          <Card titulo="Contatos" valor={num(g.contatos, 1)} linha={comp(g.contatos, ga.contatos, (x) => num(x, 1))} ajuda={`${ou(g.contatos, brl(g.custoContato))} por contato`} destaque="border-indigo-200 ring-1 ring-indigo-100" />
-          <Card titulo="Vendas do Google Ads" valor={num(fGoogle.vendas)} linha={comp(fGoogle.vendas, fGoogleA.vendas, (x) => num(x))} ajuda={`${brl(fGoogle.faturamento)} · retorno ${vezes(div(fGoogle.faturamento, g.investimento))}`} />
-        </div>
-        <Secao titulo="Custo por etapa">
+        <Secao titulo="Custo por etapa do Google Ads" sub="Do anúncio aparecendo até a venda lançada no Comercial (venda ligada a um orçamento do site que veio de anúncio do Google).">
           <EtapasCusto f={fGoogle} rotuloContato="contato" />
         </Secao>
-        <Secao titulo="Campanhas" direita={<Link href="/dashboard/site" className="inline-flex items-center gap-1 text-sm font-medium text-indigo-700 hover:underline">Painel completo do site e Google Ads <ArrowRight className="w-4 h-4" /></Link>}
-          sub="Termos pesquisados, orçamentos do site e origem orgânica x paga ficam no painel completo.">
-          {adsP.length === 0 ? <p className="text-sm text-gray-500">Nenhuma campanha com gasto no período.</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm tabular-nums">
-                <thead><tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100"><Th esq>Campanha</Th><Th>Investido</Th><Th>Cliques</Th><Th>CPC</Th><Th>Contatos</Th><Th>Custo/contato</Th></tr></thead>
-                <tbody className="divide-y divide-gray-100">
-                  {porCampanha(adsP).map((c) => (
-                    <tr key={c.id}>
-                      <td className="py-2 pr-2 font-medium text-gray-900">{c.nome}</td>
-                      <Td forte>{brl(c.investimento)}</Td><Td>{num(c.cliques)}</Td><Td>{brl(c.cpc)}</Td><Td>{num(c.contatos, 1)}</Td><Td forte>{ou(c.contatos, brl(c.custoContato))}</Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Secao>
+        {p.site}
       </>)}
 
       {/* ═════════════════════════ TIKTOK ═════════════════════════ */}

@@ -15,6 +15,8 @@ interface Props {
   eventos: SiteEvento[]
   ultimoEnvio: string | null
   erro: string | null
+  /** Dentro do módulo Marketing: sem título e sem filtro de período próprios (o Marketing já tem) */
+  embutido?: boolean
 }
 
 const pct1 = (v: number) => (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%'
@@ -36,7 +38,7 @@ function Card({ titulo, valor, linha, ajuda, destaque }: { titulo: string; valor
   )
 }
 
-export default function SitePainel({ periodo, ads, termos, leads, eventos, ultimoEnvio, erro }: Props) {
+export default function SitePainel({ periodo, ads, termos, leads, eventos, ultimoEnvio, erro, embutido }: Props) {
   const noP = (d: string) => d >= periodo.de && d <= periodo.ate
   const noAnt = (d: string) => d >= periodo.antDe && d <= periodo.antAte
   const adsP = ads.filter((r) => noP(r.data))
@@ -63,11 +65,13 @@ export default function SitePainel({ periodo, ads, termos, leads, eventos, ultim
   const envioAtrasado = ultimoEnvio ? Date.now() - new Date(ultimoEnvio).getTime() > 36 * 3600e3 : true
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Site e Google Ads</h1>
-        <p className="text-sm text-gray-500">Quanto foi investido no Google, quantos contatos o site gerou e quantos viraram venda.</p>
-      </div>
+    <div className={embutido ? 'space-y-5' : 'p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl'}>
+      {!embutido && (
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Site e Google Ads</h1>
+          <p className="text-sm text-gray-500">Quanto foi investido no Google, quantos contatos o site gerou e quantos viraram venda.</p>
+        </div>
+      )}
 
       {erro && <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Não foi possível carregar os dados: {erro}</p>}
       <p className={clsx('rounded-lg border px-4 py-2.5 text-sm', envioAtrasado ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-600')}>
@@ -76,7 +80,7 @@ export default function SitePainel({ periodo, ads, termos, leads, eventos, ultim
           : <>O Google Ads ainda não enviou dados. Assim que o script agendado na conta rodar pela primeira vez, os números aparecem aqui.</>}
       </p>
 
-      <FiltroPeriodo de={periodo.de} ate={periodo.ate} atalho={periodo.atalho} rotulo={periodo.rotulo} />
+      {!embutido && <FiltroPeriodo de={periodo.de} ate={periodo.ate} atalho={periodo.atalho} rotulo={periodo.rotulo} />}
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-gray-700">Google Ads</h2>
