@@ -13,6 +13,7 @@ import {
   MapPinned,
   KeyRound,
   Globe,
+  Inbox,
   X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -46,6 +47,12 @@ export default function Sidebar({ profile, onClose }: SidebarProps) {
       label: 'Comercial',
       icon: TrendingUp,
       roles: ['admin', 'system', 'commercial', 'client', 'externo'],
+    },
+    {
+      href: '/dashboard/leads',
+      label: 'Leads do site',
+      icon: Inbox,
+      roles: ['admin', 'system', 'client', 'commercial'],
     },
     {
       href: '/dashboard/externo',

@@ -96,3 +96,8 @@ grant execute on function public.ads_ultimo_envio(uuid) to authenticated;
 -- site_leads ganhou canal, utm_source, utm_medium, utm_campaign, referrer, sessao;
 -- nova tabela site_eventos (cliques no WhatsApp, um por visita) e funções públicas site_lead / site_evento (p_slug, p_dados jsonb).
 -- Canais: google_ads, meta_ads, outros_anuncios (pagos) · busca_organica, redes_sociais, whatsapp, outros_sites, direto, nao_identificado (orgânicos).
+
+-- 29/10/2026 — módulo Leads (migração leads_crm): site_leads ganhou telefone, responsavel_id, respondido_em/por,
+-- orcado_em, valor_orcamento, fechado_em, motivo_perda, retorno_em, observacoes. Trigger site_leads_atualizar grava
+-- respondido_em na 1ª mudança de "novo" e registra cada troca de etapa em lead_historico.
+-- lead_responsaveis = quem recebe a janela de alerta (inicialmente a Bruna).
